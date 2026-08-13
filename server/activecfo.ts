@@ -1,0 +1,195 @@
+import { z } from "zod";
+
+const SUPABASE_URL = "https://himcjclfbzoposhxmlfg.supabase.co";
+const REST_BASE = `${SUPABASE_URL}/rest/v1`;
+
+export const profileCodeSchema = z.enum(["saquib", "rahat"]);
+export const monthSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const idSchema = z.string().uuid();
+
+export type LedgerEntry = {
+  id: string;
+  profile_code: "saquib" | "rahat";
+  entry_date: string;
+  entry_type: "INCOME" | "EXPENSE";
+  bucket: "INCOME" | "NEEDS" | "WANTS" | "INVESTMENT" | "OTHER";
+  category: string;
+  description: string;
+  amount: number | string;
+  payment_method: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type InvestmentRecord = {
+  id: string;
+  profile_code: "saquib" | "rahat";
+  record_type: "EMERGENCY_FUND" | "MUTUAL_FUND" | "ETF" | "CRYPTO" | "CUSTOM";
+  name: string;
+  allocation_date: string;
+  units: number | string | null;
+  cost_basis: number | string;
+  current_value: number | string | null;
+  platform: string | null;
+  notes: string | null;
+  is_active: boolean;
+};
+
+type Threshold = {
+  id: string;
+  bucket: "NEEDS" | "WANTS" | "INVESTMENT";
+  category: string;
+  threshold_amount: number | string;
+  warning_percentage: number | string;
+};
+
+type MonthlySetting = { opening_virtual_balance: number | string; target_emergency_months: number | string } | null;
+
+function num(value: number | string | null | undefined) {
+  return Number(value ?? 0);
+}
+
+function nextMonth(monthStart: string) {
+  const [year, month] = monthStart.split("-").map(Number);
+  return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+}
+
+function supabaseHeaders(extra: HeadersInit = {}) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) throw new Error("ActiveCFO Supabase server credential is not configured.");
+  return {
+    apikey: serviceRoleKey,
+    Authorization: `Bearer ${serviceRoleKey}`,
+    "Content-Type": "application/json",
+    ...extra,
+  };
+}
+
+export async function supabaseRequest<T>(path: string, init: RequestInit = {}) {
+  const response = await fetch(`${REST_BASE}${path}`, {
+    ...init,
+    headers: supabaseHeaders(init.headers),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Supabase request failed (${response.status}): ${text || response.statusText}`);
+  }
+  return (text ? JSON.parse(text) : null) as T;
+}
+
+function encodeFilter(value: string) {
+  return encodeURIComponent(value);
+}
+
+export async function listRows<T>(table: string, profileCode?: "saquib" | "rahat", additional = "") {
+  const parts = ["select=*"];
+  if (profileCode) parts.push(`profile_code=eq.${encodeFilter(profileCode)}`);
+  if (additional) parts.push(additional);
+  return supabaseRequest<T[]>(`/${table}?${parts.join("&")}`);
+}
+
+export async function createRow<T>(table: string, payload: Record<string, unknown>) {
+  const rows = await supabaseRequest<T[]>(`/${table}`, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(payload),
+  });
+  return rows[0];
+}
+
+export async function updateRow<T>(table: string, id: string, payload: Record<string, unknown>) {
+  const rows = await supabaseRequest<T[]>(`/${table}?id=eq.${encodeFilter(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(payload),
+  });
+  return rows[0];
+}
+
+export async function deleteRow(table: string, id: string) {
+  await supabaseRequest(`/${table}?id=eq.${encodeFilter(id)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+  return { id };
+}
+
+export function calculateDashboard(input: {
+  setting: MonthlySetting;
+  ledger: LedgerEntry[];
+  investments: InvestmentRecord[];
+  thresholds: Threshold[];
+}) {
+  const openingBalance = num(input.setting?.opening_virtual_balance);
+  const income = input.ledger.filter((entry) => entry.entry_type === "INCOME").reduce((sum, entry) => sum + num(entry.amount), 0);
+  const expenses = input.ledger.filter((entry) => entry.entry_type === "EXPENSE").reduce((sum, entry) => sum + num(entry.amount), 0);
+  const virtualBalance = openingBalance + income - expenses;
+  const investedCapital = input.investments.filter((record) => record.is_active).reduce((sum, record) => sum + num(record.cost_basis), 0);
+  const investmentValue = input.investments.filter((record) => record.is_active).reduce((sum, record) => sum + num(record.current_value ?? record.cost_basis), 0);
+  const emergencyFund = input.investments.filter((record) => record.is_active && record.record_type === "EMERGENCY_FUND").reduce((sum, record) => sum + num(record.current_value ?? record.cost_basis), 0);
+  const needsSpent = input.ledger.filter((entry) => entry.entry_type === "EXPENSE" && entry.bucket === "NEEDS").reduce((sum, entry) => sum + num(entry.amount), 0);
+  const wantsSpent = input.ledger.filter((entry) => entry.entry_type === "EXPENSE" && entry.bucket === "WANTS").reduce((sum, entry) => sum + num(entry.amount), 0);
+  const investmentSpent = input.ledger.filter((entry) => entry.entry_type === "EXPENSE" && entry.bucket === "INVESTMENT").reduce((sum, entry) => sum + num(entry.amount), 0);
+  const thresholdSummary = input.thresholds.map((threshold) => {
+    const spent = input.ledger
+      .filter((entry) => entry.entry_type === "EXPENSE" && entry.bucket === threshold.bucket && entry.category === threshold.category)
+      .reduce((sum, entry) => sum + num(entry.amount), 0);
+    const limit = num(threshold.threshold_amount);
+    const usedPercentage = limit > 0 ? Math.round((spent / limit) * 100) : 0;
+    return { ...threshold, spent, limit, usedPercentage };
+  });
+  const wantsLimit = input.thresholds.filter((threshold) => threshold.bucket === "WANTS").reduce((sum, threshold) => sum + num(threshold.threshold_amount), 0);
+  const wantsPercentage = wantsLimit > 0 ? Math.round((wantsSpent / wantsLimit) * 100) : 0;
+
+  return {
+    openingBalance,
+    income,
+    expenses,
+    virtualBalance,
+    investedCapital,
+    investmentValue,
+    netWorth: virtualBalance + investmentValue,
+    emergencyFund,
+    needsSpent,
+    wantsSpent,
+    investmentSpent,
+    wantsLimit,
+    wantsPercentage,
+    thresholdSummary,
+  };
+}
+
+export async function getDashboard(profileCode: "saquib" | "rahat", monthStart: string) {
+  const monthEnd = nextMonth(monthStart);
+  const [settingRows, ledger, investments, thresholds, insurances, guardrails, strategies, storedSignals] = await Promise.all([
+    supabaseRequest<MonthlySetting[]>(`/activecfo_monthly_settings?select=*&profile_code=eq.${profileCode}&month_start=eq.${monthStart}&limit=1`),
+    supabaseRequest<LedgerEntry[]>(`/activecfo_ledger_entries?select=*&profile_code=eq.${profileCode}&entry_date=gte.${monthStart}&entry_date=lt.${monthEnd}&order=entry_date.desc,created_at.desc`),
+    listRows<InvestmentRecord>("activecfo_investment_records", profileCode, "is_active=eq.true&order=allocation_date.desc"),
+    supabaseRequest<Threshold[]>(`/activecfo_thresholds?select=*&profile_code=eq.${profileCode}&month_start=eq.${monthStart}&order=bucket.asc,category.asc`),
+    listRows<Record<string, unknown>>("activecfo_insurance_records", profileCode, "is_active=eq.true&order=renewal_date.asc.nullslast"),
+    listRows<Record<string, unknown>>("activecfo_guardrails", profileCode, "order=created_at.desc"),
+    listRows<Record<string, unknown>>("activecfo_strategies", profileCode, "order=created_at.desc"),
+    listRows<Record<string, unknown>>("activecfo_signals", profileCode, "order=is_resolved.asc,created_at.desc"),
+  ]);
+  const summary = calculateDashboard({ setting: settingRows[0] ?? null, ledger, investments, thresholds });
+  const computedSignals = summary.thresholdSummary
+    .filter((threshold) => threshold.limit > 0 && threshold.usedPercentage >= num(threshold.warning_percentage))
+    .map((threshold) => ({
+      id: `computed-${threshold.id}`,
+      severity: threshold.usedPercentage >= 100 ? "ALERT" : "ATTENTION",
+      title: `${threshold.category} is at ${threshold.usedPercentage}%`,
+      message: `${threshold.category} has used ${threshold.spent} of the ${threshold.limit} threshold this month.`,
+      related_category: threshold.category,
+      is_resolved: false,
+      computed: true,
+    }));
+  return {
+    monthStart,
+    setting: settingRows[0] ?? null,
+    ledger,
+    investments,
+    thresholds,
+    insurances,
+    guardrails,
+    strategies,
+    signals: [...computedSignals, ...storedSignals],
+    summary,
+  };
+}

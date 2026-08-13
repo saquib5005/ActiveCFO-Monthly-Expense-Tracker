@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 
 // Noir Observatory system: dark graphite surfaces, signal cyan, asymmetrical control-center layout.
 function Router() {
+  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path="/" component={Home} />

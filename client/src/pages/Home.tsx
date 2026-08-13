@@ -1,325 +1,324 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { trpc } from "@/lib/trpc";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
-  Activity,
-  ArrowDownRight,
   ArrowUpRight,
-  Bell,
+  BadgeCheck,
   BookOpen,
-  BriefcaseBusiness,
-  ChevronDown,
+  CircleDollarSign,
   CircleHelp,
+  ClipboardList,
   CreditCard,
-  Crosshair,
-  Eye,
-  Filter,
-  Gauge,
-  LayoutDashboard,
-  LineChart,
+  Edit3,
+  FilePlus2,
+  HandCoins,
+  HeartPulse,
+  Landmark,
+  Lightbulb,
   ListChecks,
+  Loader2,
   Menu,
   Plus,
   Radio,
-  Search,
+  ReceiptText,
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Target,
   TrendingUp,
+  Trash2,
   WalletCards,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-// Noir Observatory system: spacious graphite canvas, mono metadata, cyan signal dots, clipped control panels.
+type ProfileCode = "saquib" | "rahat";
+type ViewId = "overview" | "setup" | "ledger" | "investments" | "insurance" | "guardrails" | "strategies" | "signals" | "help";
+type ModalType = "settings" | "threshold" | "ledger" | "investment" | "insurance" | "guardrail" | "strategy" | "signal" | "help";
+type AnyRecord = Record<string, unknown>;
+type ModalState = { type: ModalType; record?: AnyRecord } | null;
 
-type UserName = "Saquib" | "Rahat";
-type ViewName = "overview" | "budget" | "analytics" | "campaigns" | "strategies" | "trades" | "signals" | "help";
-
-type Profile = {
-  initials: string;
-  role: string;
+type Summary = {
+  openingBalance: number;
+  income: number;
+  expenses: number;
+  virtualBalance: number;
+  investedCapital: number;
+  investmentValue: number;
   netWorth: number;
-  netWorthChange: number;
-  monthlySpend: number;
-  monthlyBudget: number;
-  invested: number;
-  cashBuffer: number;
-  runway: number;
-  allocation: { label: string; value: number; color: string }[];
-  chart: number[];
-  activities: { title: string; category: string; amount: number; date: string; tone: "cyan" | "blue" | "amber" }[];
+  emergencyFund: number;
+  needsSpent: number;
+  wantsSpent: number;
+  investmentSpent: number;
+  wantsLimit: number;
+  wantsPercentage: number;
+  thresholdSummary: Array<AnyRecord & { spent: number; limit: number; usedPercentage: number }>;
 };
 
-const PROFILES: Record<UserName, Profile> = {
-  Saquib: {
-    initials: "SQ",
-    role: "Household lead",
-    netWorth: 1950000,
-    netWorthChange: 6.84,
-    monthlySpend: 61250,
-    monthlyBudget: 83000,
-    invested: 1236800,
-    cashBuffer: 314000,
-    runway: 5.1,
-    allocation: [
-      { label: "Core", value: 42, color: "cyan" },
-      { label: "Equity", value: 31, color: "blue" },
-      { label: "Gold", value: 14, color: "violet" },
-      { label: "Cash", value: 13, color: "amber" },
-    ],
-    chart: [45, 44, 46, 47, 46, 49, 52, 50, 53, 55, 54, 58, 61, 60, 64, 67, 66, 69, 73, 72, 75, 78, 82, 84],
-    activities: [
-      { title: "SIP · UTI Nifty 50", category: "Investments", amount: -12500, date: "Today · 09:14", tone: "cyan" },
-      { title: "Electricity bill", category: "Needs", amount: -3400, date: "Yesterday · 18:22", tone: "blue" },
-      { title: "Salary allocation", category: "Income", amount: 145000, date: "01 Aug · 10:00", tone: "amber" },
-      { title: "Gold accumulation", category: "Satellite", amount: -7600, date: "30 Jul · 16:48", tone: "cyan" },
-    ],
-  },
-  Rahat: {
-    initials: "RH",
-    role: "Household member",
-    netWorth: 862500,
-    netWorthChange: 4.21,
-    monthlySpend: 38700,
-    monthlyBudget: 54000,
-    invested: 534600,
-    cashBuffer: 187000,
-    runway: 4.8,
-    allocation: [
-      { label: "Core", value: 48, color: "cyan" },
-      { label: "Equity", value: 24, color: "blue" },
-      { label: "Gold", value: 16, color: "violet" },
-      { label: "Cash", value: 12, color: "amber" },
-    ],
-    chart: [44, 45, 44, 46, 48, 47, 50, 52, 51, 53, 55, 56, 58, 57, 59, 61, 64, 63, 66, 67, 69, 72, 73, 76],
-    activities: [
-      { title: "SIP · Parag Parikh Flexi", category: "Investments", amount: -8000, date: "Today · 08:05", tone: "cyan" },
-      { title: "Groceries", category: "Needs", amount: -5280, date: "Yesterday · 20:12", tone: "blue" },
-      { title: "Freelance receipt", category: "Income", amount: 42000, date: "02 Aug · 11:40", tone: "amber" },
-      { title: "Health insurance", category: "Protection", amount: -3200, date: "29 Jul · 13:06", tone: "cyan" },
-    ],
-  },
+type Dashboard = {
+  setting: AnyRecord | null;
+  ledger: AnyRecord[];
+  investments: AnyRecord[];
+  thresholds: AnyRecord[];
+  insurances: AnyRecord[];
+  guardrails: AnyRecord[];
+  strategies: AnyRecord[];
+  signals: AnyRecord[];
+  summary: Summary;
 };
 
-const NAV_ITEMS: { id: ViewName; label: string; icon: LucideIcon; section?: string }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard, section: "Workspace" },
-  { id: "budget", label: "Budget plan", icon: SlidersHorizontal },
-  { id: "analytics", label: "Analytics", icon: LineChart, section: "Intelligence" },
-  { id: "campaigns", label: "Guardrails", icon: ShieldCheck },
-  { id: "strategies", label: "Strategies", icon: Crosshair, section: "Activity" },
-  { id: "trades", label: "Ledger", icon: CreditCard },
+const CATEGORY_GROUPS = {
+  NEEDS: ["Housing", "Groceries", "Utilities", "Fuel", "Transport", "Healthcare", "Education", "Insurance", "Household", "Debt repayment"],
+  WANTS: ["Entertainment", "Dining", "Shopping", "Travel", "Personal care", "Subscriptions", "Gifts", "Hobbies"],
+  INVESTMENT: ["Emergency Fund", "Mutual Funds", "ETFs", "Crypto", "Custom allocation"],
+} as const;
+
+const NAV_ITEMS: Array<{ id: ViewId; label: string; icon: LucideIcon; section?: string }> = [
+  { id: "overview", label: "Overview", icon: Target, section: "Control center" },
+  { id: "setup", label: "Monthly setup", icon: SlidersHorizontal },
+  { id: "ledger", label: "Ledger", icon: ReceiptText, section: "Records" },
+  { id: "investments", label: "Investments", icon: WalletCards },
+  { id: "insurance", label: "Insurance", icon: HeartPulse },
+  { id: "guardrails", label: "Guardrails", icon: ShieldCheck, section: "Decisions" },
+  { id: "strategies", label: "Strategies", icon: Lightbulb },
   { id: "signals", label: "Signals", icon: Radio },
   { id: "help", label: "Help center", icon: CircleHelp, section: "System" },
 ];
 
-function formatCurrency(value: number) {
-  return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+function numberValue(value: unknown) {
+  return Number(value ?? 0);
 }
 
-function formatCompact(value: number) {
-  if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return formatCurrency(value);
+function textValue(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
 }
 
-function MiniLineChart({ data, height = 120 }: { data: number[]; height?: number }) {
-  const width = 640;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const points = data
-    .map((value, index) => {
-      const x = (index / (data.length - 1)) * width;
-      const y = height - 14 - ((value - min) / (max - min || 1)) * (height - 30);
-      return `${x},${y}`;
-    })
-    .join(" ");
-  const areaPoints = `0,${height} ${points} ${width},${height}`;
-  return (
-    <svg className="mini-chart" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label="Net worth trend chart" role="img">
-      <defs>
-        <linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#65dbe3" stopOpacity="0.22" />
-          <stop offset="100%" stopColor="#65dbe3" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0.25, 0.5, 0.75].map((line) => (
-        <line key={line} x1="0" x2={width} y1={height * line} y2={height * line} className="chart-grid" />
-      ))}
-      <polygon points={areaPoints} fill="url(#chartFill)" />
-      <polyline points={points} fill="none" stroke="#65dbe3" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={width} cy={Number(points.split(" ").at(-1)?.split(",")[1] ?? 0)} r="4" fill="#65dbe3" className="chart-endpoint" />
-    </svg>
-  );
+function formatCurrency(value: unknown) {
+  return `₹${numberValue(value).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
-function SignalDot({ tone = "cyan" }: { tone?: "cyan" | "blue" | "amber" | "violet" }) {
-  return <span className={`signal-dot signal-${tone}`} aria-hidden="true" />;
+function currentMonthStart() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)).toISOString().slice(0, 10);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function monthLabel(monthStart: string) {
+  return new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(new Date(`${monthStart}T00:00:00`));
+}
+
+function signalTone(severity: unknown) {
+  if (severity === "ALERT") return "tone-alert";
+  if (severity === "ATTENTION") return "tone-attention";
+  return "tone-info";
+}
+
+function bucketTone(bucket: unknown) {
+  if (bucket === "WANTS") return "bucket-wants";
+  if (bucket === "INVESTMENT") return "bucket-investment";
+  return "bucket-needs";
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return <div className="section-label">{children}</div>;
 }
 
-function MetricCard({ label, value, detail, tone = "default", icon: Icon }: { label: string; value: string; detail: string; tone?: string; icon: LucideIcon }) {
-  return (
-    <article className={`metric-card metric-${tone}`}>
-      <div className="metric-head"><span>{label}</span><Icon size={15} strokeWidth={1.6} /></div>
-      <strong>{value}</strong>
-      <div className="metric-detail"><SignalDot tone={tone === "positive" ? "cyan" : tone === "attention" ? "amber" : "blue"} />{detail}</div>
-    </article>
-  );
+function SignalDot({ tone = "cyan" }: { tone?: "cyan" | "amber" | "violet" | "red" }) {
+  return <span className={`signal-dot signal-${tone}`} aria-hidden="true" />;
 }
 
-function AppHeader({ profile, user, onUserChange, onMenu }: { profile: Profile; user: UserName; onUserChange: (name: UserName) => void; onMenu: () => void }) {
-  return (
-    <header className="topbar">
-      <button className="mobile-menu" onClick={onMenu} aria-label="Open navigation"><Menu size={20} /></button>
-      <div className="breadcrumbs"><span>Control center</span><span className="breadcrumb-separator">/</span><span className="breadcrumb-current">{user}'s view</span></div>
-      <div className="topbar-actions">
-        <button className="icon-button" aria-label="Search"><Search size={17} /></button>
-        <button className="icon-button notification-button" aria-label="Notifications"><Bell size={17} /><span className="notification-ping" /></button>
-        <div className="user-switcher">
-          <div className="avatar">{profile.initials}</div>
-          <div className="user-select-wrap">
-            <select value={user} onChange={(event) => onUserChange(event.target.value as UserName)} aria-label="Select user">
-              <option value="Saquib">Saquib</option>
-              <option value="Rahat">Rahat</option>
-            </select>
-            <ChevronDown size={13} />
-          </div>
-        </div>
-      </div>
-    </header>
-  );
+function LoadingPane() {
+  return <div className="loading-pane"><Loader2 size={21} className="spin" /><span>Reading your workspace…</span></div>;
 }
 
-function Sidebar({ activeView, onNavigate, user, open, onClose }: { activeView: ViewName; onNavigate: (view: ViewName) => void; user: UserName; open: boolean; onClose: () => void }) {
-  return (
-    <>
-      {open && <button className="sidebar-backdrop" onClick={onClose} aria-label="Close navigation" />}
-      <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
-        <div className="brand-lockup"><div className="brand-mark"><span>◒</span></div><div className="brand-type"><strong>Active<span>CFO</span></strong><small>private wealth office</small></div><button className="sidebar-close" onClick={onClose} aria-label="Close navigation"><X size={17} /></button></div>
-        <div className="sidebar-rule" />
-        <div className="sidebar-context"><span className="context-eyebrow">CURRENT PROFILE</span><strong>{user}</strong><span className="context-status"><SignalDot /> Local data space</span></div>
-        <nav className="sidebar-nav" aria-label="Primary navigation">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.id}>
-                {item.section && <SectionLabel>{item.section}</SectionLabel>}
-                <button className={`nav-item ${activeView === item.id ? "nav-active" : ""}`} onClick={() => { onNavigate(item.id); onClose(); }}>
-                  <Icon size={16} strokeWidth={activeView === item.id ? 2 : 1.6} /><span>{item.label}</span>{activeView === item.id && <span className="nav-signal"><SignalDot /></span>}
-                </button>
-              </div>
-            );
-          })}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="balance-card"><div className="balance-head"><span>VIRTUAL BALANCE</span><Eye size={13} /></div><strong>{formatCurrency(user === "Saquib" ? 550000 : 280000)}</strong><span className="balance-note">Manual tracking mode</span></div>
-          <div className="sidebar-footer"><button className="small-icon-button" aria-label="Settings"><Settings2 size={15} /></button><button className="small-icon-button" aria-label="Documentation"><BookOpen size={15} /></button><span className="version-tag">v0.9 / local</span></div>
-        </div>
-      </aside>
-    </>
-  );
+function EmptyState({ icon: Icon, title, body, action }: { icon: LucideIcon; title: string; body: string; action?: ReactNode }) {
+  return <div className="empty-state"><div className="empty-icon"><Icon size={22} /></div><strong>{title}</strong><p>{body}</p>{action}</div>;
 }
 
-function Overview({ profile, user, onNavigate, onAddExpense }: { profile: Profile; user: UserName; onNavigate: (view: ViewName) => void; onAddExpense: () => void }) {
-  const budgetUsed = Math.round((profile.monthlySpend / profile.monthlyBudget) * 100);
-  return (
-    <>
-      <section className="hero-panel">
-        <img src="/manus-storage/activecfo-hero_0a3ef668.png" alt="" className="hero-art" />
-        <div className="hero-overlay" />
-        <div className="hero-content"><SectionLabel>OVERVIEW · AUGUST 2026</SectionLabel><h1>Make the next<br /><em>move visible.</em></h1><p>One calm view of your budget, portfolio, and the guardrails protecting both.</p><div className="hero-actions"><button className="primary-action" onClick={() => onNavigate("budget")}><Plus size={16} /> Add allocation</button><button className="secondary-action" onClick={onAddExpense}><CreditCard size={15} /> Log expense</button></div></div>
-        <div className="hero-aside"><div className="hero-aside-label">MONTHLY PULSE</div><div className="hero-aside-value">{budgetUsed}<span>%</span></div><div className="hero-aside-copy">of your wants ceiling used</div><div className="hero-line"><span style={{ width: `${budgetUsed}%` }} /></div><div className="hero-aside-foot"><span>₹{profile.monthlySpend.toLocaleString("en-IN")}</span><span>₹{profile.monthlyBudget.toLocaleString("en-IN")}</span></div></div>
-        <div className="hero-coordinates"><span>0.08.24</span><span>signal / active</span><span>no sync required</span></div>
-      </section>
-
-      <section className="metrics-grid">
-        <MetricCard label="Net worth" value={formatCompact(profile.netWorth)} detail={`+${profile.netWorthChange}% this month`} tone="positive" icon={TrendingUp} />
-        <MetricCard label="Invested capital" value={formatCompact(profile.invested)} detail="63.4% of total assets" icon={BriefcaseBusiness} />
-        <MetricCard label="Cash buffer" value={formatCompact(profile.cashBuffer)} detail={`${profile.runway} months runway`} tone="attention" icon={Gauge} />
-        <MetricCard label="Monthly outflow" value={formatCompact(profile.monthlySpend)} detail={`${100 - budgetUsed}% room remaining`} icon={ArrowDownRight} />
-      </section>
-
-      <section className="dashboard-grid">
-        <article className="panel chart-panel">
-          <div className="panel-head"><div><SectionLabel>PORTFOLIO TRAJECTORY</SectionLabel><h2>Net worth over time</h2></div><div className="panel-actions"><button className="filter-button"><span>Last 6 months</span><ChevronDown size={13} /></button><button className="more-button">•••</button></div></div>
-          <div className="chart-summary"><strong>{formatCurrency(profile.netWorth)}</strong><span className="positive-label"><ArrowUpRight size={14} /> {profile.netWorthChange}%</span><span className="muted-copy">vs. previous period</span></div>
-          <div className="chart-wrap"><MiniLineChart data={profile.chart} /></div>
-          <div className="chart-axis"><span>MAR</span><span>APR</span><span>MAY</span><span>JUN</span><span>JUL</span><span>AUG</span></div>
-        </article>
-        <article className="panel allocation-panel">
-          <div className="panel-head"><div><SectionLabel>ASSET MIX</SectionLabel><h2>Core / satellite</h2></div><button className="more-button">•••</button></div>
-          <div className="allocation-visual"><div className="donut" style={{ background: `conic-gradient(#65dbe3 0 42%, #738aff 42% 73%, #b699e8 73% 87%, #d9a45c 87% 100%)` }}><div className="donut-center"><strong>100%</strong><span>mapped</span></div></div><div className="allocation-legend">{profile.allocation.map((item) => <div className="legend-row" key={item.label}><span className={`legend-color legend-${item.color}`} /> <span>{item.label}</span><strong>{item.value}%</strong></div>)}</div></div>
-          <button className="panel-link" onClick={() => onNavigate("analytics")}>Read allocation analytics <ArrowUpRight size={14} /></button>
-        </article>
-      </section>
-
-      <section className="lower-grid">
-        <article className="panel activity-panel">
-          <div className="panel-head"><div><SectionLabel>RECENT LEDGER</SectionLabel><h2>Activity around you</h2></div><button className="filter-button"><Filter size={13} /><span>Filter</span></button></div>
-          <div className="activity-list">{profile.activities.map((activity) => <div className="activity-row" key={`${activity.title}-${activity.date}`}><div className="activity-icon"><SignalDot tone={activity.tone} /></div><div className="activity-copy"><strong>{activity.title}</strong><span>{activity.category} · {activity.date}</span></div><span className={`activity-amount ${activity.amount > 0 ? "amount-positive" : ""}`}>{activity.amount > 0 ? "+" : "−"}{formatCurrency(Math.abs(activity.amount))}</span></div>)}</div>
-          <button className="panel-link" onClick={() => onNavigate("trades")}>View full ledger <ArrowUpRight size={14} /></button>
-        </article>
-        <article className="panel signal-panel"><img src="/manus-storage/activecfo-insight_f6f748c1.png" alt="" className="signal-art" /><div className="signal-shade" /><div className="signal-content"><SectionLabel>CONTEXTUAL SIGNAL</SectionLabel><div className="signal-title"><Sparkles size={18} /><h2>Buffer is steady.</h2></div><p>Your liquid reserve covers {profile.runway} months at current spending. The configured floor is 6 months. Keep this month’s emergency allocation active.</p><button className="signal-action" onClick={() => onNavigate("campaigns")}>Review guardrails <ArrowUpRight size={14} /></button></div><div className="signal-orbit"><div /></div></article>
-      </section>
-    </>
-  );
+function MetricCard({ label, value, detail, icon: Icon, accent = "cyan" }: { label: string; value: string; detail: string; icon: LucideIcon; accent?: "cyan" | "amber" | "violet" }) {
+  return <article className={`metric-card accent-${accent}`}><div className="metric-head"><span>{label}</span><Icon size={15} /></div><strong>{value}</strong><div className="metric-detail"><SignalDot tone={accent === "amber" ? "amber" : accent === "violet" ? "violet" : "cyan"} />{detail}</div></article>;
 }
 
-function BudgetView({ profile, onAddExpense }: { profile: Profile; onAddExpense: () => void }) {
-  const rows = [
-    ["Emergency fund", 18000, "6 month runway"],
-    ["Investments", 22000, "Core + satellite"],
-    ["Insurance", 7800, "Health + term"],
-    ["Wants", profile.monthlyBudget - 47800, "Flexible ceiling"],
-  ] as const;
-  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>WORKSPACE · MONTHLY PLAN</SectionLabel><h1>Give every rupee<br /><em>a job.</em></h1><p>Set the constraints first. The ledger stays honest when the plan is visible.</p></div><button className="primary-action" onClick={onAddExpense}><Plus size={16} /> Log expense</button></div><div className="budget-command"><div><span className="command-label">AUGUST ALLOCATION</span><strong>{formatCurrency(profile.monthlyBudget)}</strong><span className="command-note">₹{(profile.monthlyBudget - profile.monthlySpend).toLocaleString("en-IN")} unassigned buffer</span></div><div className="command-status"><SignalDot /><span>PLAN ACTIVE</span></div></div><div className="budget-rows">{rows.map(([label, amount, note], index) => <div className="budget-row" key={label}><div className="budget-index">0{index + 1}</div><div className="budget-name"><strong>{label}</strong><span>{note}</span></div><div className="budget-progress"><span style={{ width: `${Math.min((amount / profile.monthlyBudget) * 100 * 2.2, 100)}%` }} /></div><strong className="budget-amount">{formatCurrency(amount)}</strong><button className="more-button">•••</button></div>)}</div><div className="guardrail-note"><ShieldCheck size={18} /><div><strong>Guardrail status: stable</strong><span>No category has crossed its configured review threshold this month.</span></div><ArrowUpRight size={15} /></div></div>;
+function ProfileSelect({ profileCode, onChange }: { profileCode: ProfileCode; onChange: (value: ProfileCode) => void }) {
+  return <div className="profile-select"><span>WORKSPACE</span><select value={profileCode} onChange={(event) => onChange(event.target.value as ProfileCode)} aria-label="Select ActiveCFO profile"><option value="saquib">Saquib</option><option value="rahat">Rahat</option></select></div>;
 }
 
-function AnalyticsView({ profile }: { profile: Profile }) {
-  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>INTELLIGENCE · ANALYTICS</SectionLabel><h1>See the shape<br /><em>of your wealth.</em></h1><p>Read the trend without losing the context behind it.</p></div><button className="secondary-action"><Activity size={15} /> Compare periods</button></div><div className="analytics-feature panel"><div className="panel-head"><div><SectionLabel>LIFETIME TRAJECTORY</SectionLabel><h2>Capital curve</h2></div><span className="live-chip"><SignalDot /> Live model</span></div><div className="analytics-number"><strong>{formatCurrency(profile.netWorth)}</strong><span>+{profile.netWorthChange}% through current period</span></div><div className="chart-wrap analytics-chart"><MiniLineChart data={profile.chart} height={220} /></div></div><div className="analytics-cards"><MetricCard label="Core stability" value="42%" detail="Target range 35–50%" icon={ShieldCheck} /><MetricCard label="Portfolio beta" value="0.68" detail="Moderate movement" icon={LineChart} /><MetricCard label="Savings rate" value="28.4%" detail="Above household floor" tone="positive" icon={Target} /></div></div>;
+function Sidebar({ activeView, onNavigate, profileCode, summary, open, onClose }: { activeView: ViewId; onNavigate: (view: ViewId) => void; profileCode: ProfileCode; summary: Summary; open: boolean; onClose: () => void }) {
+  return <>
+    {open && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={onClose} />}
+    <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
+      <div className="brand-lockup"><div className="brand-mark">◒</div><div><strong className="brand-word">Active<span>CFO</span></strong><small>PRIVATE WEALTH OFFICE</small></div><button className="sidebar-close" aria-label="Close navigation" onClick={onClose}><X size={17} /></button></div>
+      <div className="sidebar-rule" />
+      <div className="sidebar-context"><SectionLabel>ACTIVE PROFILE</SectionLabel><strong>{profileCode === "saquib" ? "Saquib" : "Rahat"}</strong><span><SignalDot /> Supabase workspace</span></div>
+      <nav className="sidebar-nav" aria-label="ActiveCFO navigation">{NAV_ITEMS.map((item) => { const Icon = item.icon; return <div key={item.id}>{item.section && <SectionLabel>{item.section}</SectionLabel>}<button className={`nav-item ${activeView === item.id ? "nav-active" : ""}`} onClick={() => { onNavigate(item.id); onClose(); }}><Icon size={16} /><span>{item.label}</span>{activeView === item.id && <SignalDot />}</button></div>; })}</nav>
+      <div className="sidebar-bottom"><div className="balance-card"><div className="balance-head"><span>VIRTUAL BALANCE</span><CircleDollarSign size={14} /></div><strong>{formatCurrency(summary.virtualBalance)}</strong><span>{formatCurrency(summary.income)} in · {formatCurrency(summary.expenses)} out</span></div><div className="sidebar-footer"><button aria-label="Open monthly setup" onClick={() => onNavigate("setup")}><Settings2 size={14} /></button><button aria-label="Open help center" onClick={() => onNavigate("help")}><BookOpen size={14} /></button><small>SERVER DATA</small></div></div>
+    </aside>
+  </>;
 }
 
-function PlaceholderView({ view, onNavigate }: { view: ViewName; onNavigate: (view: ViewName) => void }) {
-  const details: Record<string, { kicker: string; title: string; body: string; icon: LucideIcon }> = { campaigns: { kicker: "INTELLIGENCE · GUARDRAILS", title: "Control above action.", body: "Set the ceilings, floors, and review points that keep your plan deliberate. This workspace is ready for your next rule.", icon: ShieldCheck }, strategies: { kicker: "ACTIVITY · STRATEGIES", title: "Build the logic.", body: "Turn a financial intention into a repeatable move. Strategy notes stay next to the decisions they explain.", icon: Crosshair }, trades: { kicker: "ACTIVITY · LEDGER", title: "History stays legible.", body: "Every manual entry carries its category, intent, and effect on the monthly plan.", icon: ListChecks }, signals: { kicker: "ACTIVITY · SIGNALS", title: "Watch the edges.", body: "Your most useful alerts live at the boundary between plan and reality. No noise, only context.", icon: Radio }, help: { kicker: "SYSTEM · HELP CENTER", title: "A calmer operating manual.", body: "ActiveCFO is designed around a few clear rules: configure first, log deliberately, review often.", icon: CircleHelp } };
-  const detail = details[view] ?? details.campaigns;
-  const Icon = detail.icon;
-  return <div className="empty-view"><div className="empty-orbit"><Icon size={28} strokeWidth={1.4} /></div><SectionLabel>{detail.kicker}</SectionLabel><h1>{detail.title}</h1><p>{detail.body}</p><div className="empty-actions"><button className="primary-action" onClick={() => onNavigate("overview")}>Return to overview <ArrowUpRight size={15} /></button><button className="secondary-action" onClick={() => onNavigate("budget")}>Open budget plan</button></div></div>;
+function AppHeader({ profileCode, onProfileChange, onMenu, monthStart, onMonthChange }: { profileCode: ProfileCode; onProfileChange: (value: ProfileCode) => void; onMenu: () => void; monthStart: string; onMonthChange: (value: string) => void }) {
+  return <header className="topbar"><button className="mobile-menu" onClick={onMenu} aria-label="Open navigation"><Menu size={19} /></button><div className="breadcrumbs">CONTROL CENTER <span>/</span> {profileCode.toUpperCase()}</div><div className="header-actions"><label className="month-switch"><span>MONTH</span><input type="month" value={monthStart.slice(0, 7)} onChange={(event) => onMonthChange(`${event.target.value}-01`)} /></label><ProfileSelect profileCode={profileCode} onChange={onProfileChange} /></div></header>;
+}
+
+function Overview({ dashboard, profileCode, monthStart, setView, openModal }: { dashboard: Dashboard; profileCode: ProfileCode; monthStart: string; setView: (view: ViewId) => void; openModal: (type: ModalType) => void }) {
+  const { summary, thresholds, ledger, investments, signals } = dashboard;
+  const activeSignals = signals.filter((signal) => !Boolean(signal.is_resolved));
+  return <>
+    <section className="hero-panel"><img src="/manus-storage/activecfo-hero_0a3ef668.png" alt="" /><div className="hero-shade" /><div className="hero-content"><SectionLabel>OVERVIEW · {monthLabel(monthStart).toUpperCase()}</SectionLabel><h1>Make the next<br /><em>move visible.</em></h1><p>Every number comes from {profileCode === "saquib" ? "Saquib" : "Rahat"}’s Supabase records. Start with a monthly setup, then let the ledger do the counting.</p><div className="hero-actions"><button className="primary-action" onClick={() => setView("setup")}><SlidersHorizontal size={15} /> Set monthly thresholds</button><button className="secondary-action" onClick={() => openModal("ledger")}><Plus size={15} /> Add ledger entry</button></div></div><div className="hero-aside"><SectionLabel>MONTHLY WANTS</SectionLabel><strong>{summary.wantsLimit > 0 ? `${summary.wantsPercentage}%` : "—"}</strong><p>{summary.wantsLimit > 0 ? `${formatCurrency(summary.wantsSpent)} of ${formatCurrency(summary.wantsLimit)}` : "Set a wants threshold to begin."}</p><div className="progress-line"><span style={{ width: `${Math.min(summary.wantsPercentage, 100)}%` }} /></div></div><div className="hero-footer"><span>DATA / SUPABASE</span><span>NO BANK SYNC</span><span>NO LOGIN</span></div></section>
+    <section className="metrics-grid"><MetricCard label="Virtual balance" value={formatCurrency(summary.virtualBalance)} detail="Opening balance + income − expenses" icon={CircleDollarSign} /><MetricCard label="Invested capital" value={formatCurrency(summary.investedCapital)} detail={`${investments.length} active record${investments.length === 1 ? "" : "s"}`} icon={Landmark} accent="violet" /><MetricCard label="Emergency fund" value={formatCurrency(summary.emergencyFund)} detail="Manual allocation records" icon={ShieldCheck} accent="amber" /><MetricCard label="Monthly outflow" value={formatCurrency(summary.expenses)} detail={`${ledger.filter((entry) => entry.entry_type === "EXPENSE").length} expense record${ledger.filter((entry) => entry.entry_type === "EXPENSE").length === 1 ? "" : "s"}`} icon={TrendingUp} /></section>
+    <section className="overview-grid"><article className="panel threshold-panel"><div className="panel-head"><div><SectionLabel>THRESHOLD PULSE</SectionLabel><h2>Needs, wants & investment</h2></div><button className="text-action" onClick={() => setView("setup")}>Manage <ArrowUpRight size={14} /></button></div>{thresholds.length === 0 ? <EmptyState icon={SlidersHorizontal} title="No monthly thresholds yet" body="Add limits for detailed categories such as Fuel, Entertainment, Shopping, or your own Investment targets." action={<button className="secondary-action" onClick={() => setView("setup")}>Open monthly setup</button>} /> : <div className="threshold-list">{summary.thresholdSummary.map((threshold) => <div className="threshold-row" key={textValue(threshold.id)}><div className="threshold-row-top"><span className={`bucket-tag ${bucketTone(threshold.bucket)}`}>{textValue(threshold.bucket)}</span><strong>{textValue(threshold.category)}</strong><span>{formatCurrency(threshold.spent)} / {formatCurrency(threshold.limit)}</span></div><div className="progress-line"><span className={threshold.usedPercentage >= 100 ? "over-limit" : ""} style={{ width: `${Math.min(threshold.usedPercentage, 100)}%` }} /></div><small>{threshold.usedPercentage}% used · review at {numberValue(threshold.warning_percentage)}%</small></div>)}</div>}</article>
+      <article className="panel signals-preview"><div className="panel-head"><div><SectionLabel>SIGNALS</SectionLabel><h2>What needs attention</h2></div><button className="text-action" onClick={() => setView("signals")}>Open <ArrowUpRight size={14} /></button></div>{activeSignals.length === 0 ? <EmptyState icon={BadgeCheck} title="No active signals" body="Signals will appear when a threshold reaches its configured warning point or when you add a manual reminder." /> : <div className="signal-list">{activeSignals.slice(0, 3).map((signal) => <div className="signal-row" key={textValue(signal.id)}><span className={`severity-dot ${signalTone(signal.severity)}`} /><div><strong>{textValue(signal.title)}</strong><p>{textValue(signal.message)}</p></div></div>)}</div>}</article></section>
+  </>;
+}
+
+function MonthlySetup({ dashboard, monthStart, openModal, removeThreshold }: { dashboard: Dashboard; monthStart: string; openModal: (type: ModalType, record?: AnyRecord) => void; removeThreshold: (id: string) => void }) {
+  const settings = dashboard.setting;
+  const thresholds = dashboard.thresholds;
+  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>MONTHLY SETUP · {monthLabel(monthStart).toUpperCase()}</SectionLabel><h1>Plan before you<br /><em>start spending.</em></h1><p>Set your opening balance and the monthly category thresholds. Your ledger and signals will update from these limits.</p></div><button className="primary-action" onClick={() => openModal("settings", settings ?? undefined)}><Settings2 size={15} /> {settings ? "Edit month settings" : "Set month settings"}</button></div><div className="setup-summary panel"><div><SectionLabel>VIRTUAL BALANCE BASE</SectionLabel><strong>{settings ? formatCurrency(settings.opening_virtual_balance) : "Not set"}</strong><span>Opening balance for this month</span></div><div><SectionLabel>EMERGENCY TARGET</SectionLabel><strong>{settings ? `${numberValue(settings.target_emergency_months)} months` : "Not set"}</strong><span>Used by your guardrail reviews</span></div><button className="secondary-action" onClick={() => openModal("threshold")}><Plus size={15} /> Add threshold</button></div><section className="category-board">{(["NEEDS", "WANTS", "INVESTMENT"] as const).map((bucket) => <article className="category-column" key={bucket}><div className="category-column-head"><div><span className={`bucket-tag ${bucketTone(bucket)}`}>{bucket}</span><h2>{bucket === "NEEDS" ? "Essential spending" : bucket === "WANTS" ? "Discretionary spending" : "Future capital"}</h2></div><button className="small-plus" onClick={() => openModal("threshold", { bucket })} aria-label={`Add ${bucket.toLowerCase()} threshold`}><Plus size={15} /></button></div><div className="category-presets">{CATEGORY_GROUPS[bucket].map((category) => <span key={category}>{category}</span>)}</div><div className="threshold-rows">{thresholds.filter((threshold) => threshold.bucket === bucket).length === 0 ? <p className="empty-row">No thresholds created for {bucket.toLowerCase()}.</p> : thresholds.filter((threshold) => threshold.bucket === bucket).map((threshold) => <div className="threshold-card" key={textValue(threshold.id)}><div><strong>{textValue(threshold.category)}</strong><span>Review at {numberValue(threshold.warning_percentage)}%</span></div><div><strong>{formatCurrency(threshold.threshold_amount)}</strong><button aria-label={`Edit ${textValue(threshold.category)} threshold`} onClick={() => openModal("threshold", threshold)}><Edit3 size={14} /></button><button aria-label={`Delete ${textValue(threshold.category)} threshold`} onClick={() => removeThreshold(textValue(threshold.id))}><Trash2 size={14} /></button></div></div>)}</div></article>)}</section></div>;
+}
+
+function LedgerView({ dashboard, openModal, removeRecord }: { dashboard: Dashboard; openModal: (type: ModalType, record?: AnyRecord) => void; removeRecord: (id: string) => void }) {
+  const entries = dashboard.ledger;
+  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>RECORDS · LEDGER</SectionLabel><h1>Every rupee has<br /><em>a history.</em></h1><p>Log income and expenses with a bucket, detailed category, payment method, and a clear description.</p></div><button className="primary-action" onClick={() => openModal("ledger")}><Plus size={15} /> Add record</button></div><div className="ledger-toolbar"><div><span>INCOME</span><strong>{formatCurrency(dashboard.summary.income)}</strong></div><div><span>EXPENSES</span><strong>{formatCurrency(dashboard.summary.expenses)}</strong></div><div><span>VIRTUAL BALANCE</span><strong>{formatCurrency(dashboard.summary.virtualBalance)}</strong></div></div><article className="panel table-panel">{entries.length === 0 ? <EmptyState icon={ReceiptText} title="Your ledger is empty" body="Create an income or expense record. The overview and virtual balance will calculate from it immediately." action={<button className="primary-action" onClick={() => openModal("ledger")}><Plus size={15} /> Add first record</button>} /> : <div className="data-table"><div className="table-head"><span>Date</span><span>Record</span><span>Bucket / category</span><span>Amount</span><span /></div>{entries.map((entry) => <div className="table-row" key={textValue(entry.id)}><span>{textValue(entry.entry_date)}</span><div><strong>{textValue(entry.description)}</strong><small>{textValue(entry.payment_method, "Manual")}</small></div><div><span className={`bucket-tag ${bucketTone(entry.bucket)}`}>{textValue(entry.bucket)}</span><small>{textValue(entry.category)}</small></div><strong className={entry.entry_type === "INCOME" ? "income-amount" : "expense-amount"}>{entry.entry_type === "INCOME" ? "+" : "−"}{formatCurrency(entry.amount)}</strong><div className="row-actions"><button aria-label="Edit ledger record" onClick={() => openModal("ledger", entry)}><Edit3 size={14} /></button><button aria-label="Delete ledger record" onClick={() => removeRecord(textValue(entry.id))}><Trash2 size={14} /></button></div></div>)}</div>}</article></div>;
+}
+
+function InvestmentsView({ dashboard, openModal, removeRecord }: { dashboard: Dashboard; openModal: (type: ModalType, record?: AnyRecord) => void; removeRecord: (id: string) => void }) {
+  const investmentGroups: Array<{ type: string; title: string; description: string }> = [{ type: "EMERGENCY_FUND", title: "Emergency fund", description: "Cash reserves allocated by you." }, { type: "MUTUAL_FUND", title: "Mutual funds", description: "Manual fund and SIP records." }, { type: "ETF", title: "ETFs", description: "Exchange-traded fund positions." }, { type: "CRYPTO", title: "Crypto", description: "Manual token cost records." }, { type: "CUSTOM", title: "Custom allocation", description: "Add any future allocation type." }];
+  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>RECORDS · INVESTMENTS</SectionLabel><h1>Build capital<br /><em>on your terms.</em></h1><p>ActiveCFO does not assume you have started investing. Add or remove only the allocations you choose to track.</p></div><button className="primary-action" onClick={() => openModal("investment")}><Plus size={15} /> Add allocation</button></div><div className="investment-totals"><MetricCard label="Recorded cost" value={formatCurrency(dashboard.summary.investedCapital)} detail="Active investment records" icon={Landmark} accent="violet" /><MetricCard label="Current value" value={formatCurrency(dashboard.summary.investmentValue)} detail="Uses your own entered values" icon={TrendingUp} /><MetricCard label="Emergency reserve" value={formatCurrency(dashboard.summary.emergencyFund)} detail="Emergency fund records only" icon={ShieldCheck} accent="amber" /></div><div className="investment-grid">{investmentGroups.map((group) => { const records = dashboard.investments.filter((record) => record.record_type === group.type); return <article className="investment-section" key={group.type}><div className="investment-section-head"><div><SectionLabel>{group.type.replaceAll("_", " ")}</SectionLabel><h2>{group.title}</h2><p>{group.description}</p></div><button className="small-plus" onClick={() => openModal("investment", { record_type: group.type })} aria-label={`Add ${group.title} record`}><Plus size={15} /></button></div>{records.length === 0 ? <p className="empty-row">No records yet.</p> : <div className="record-stack">{records.map((record) => <div className="record-line" key={textValue(record.id)}><div><strong>{textValue(record.name)}</strong><span>{textValue(record.platform, "Manual record")} · {textValue(record.allocation_date)}</span></div><div><strong>{formatCurrency(record.current_value ?? record.cost_basis)}</strong><span>Cost {formatCurrency(record.cost_basis)}</span></div><div className="row-actions"><button aria-label="Edit investment record" onClick={() => openModal("investment", record)}><Edit3 size={14} /></button><button aria-label="Delete investment record" onClick={() => removeRecord(textValue(record.id))}><Trash2 size={14} /></button></div></div>)}</div>}</article>; })}</div></div>;
+}
+
+function InsuranceView({ dashboard, openModal, removeRecord }: { dashboard: Dashboard; openModal: (type: ModalType, record?: AnyRecord) => void; removeRecord: (id: string) => void }) {
+  const blocks: Array<{ type: string; title: string; copy: string }> = [{ type: "TERM", title: "Term insurance", copy: "Life cover, policy details, premium and renewal data." }, { type: "HEALTH", title: "Health insurance", copy: "Health policies, covered members and renewal records." }, { type: "CORPORATE", title: "Corporate insurance", copy: "Employer or corporate coverage details." }];
+  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>RECORDS · INSURANCE</SectionLabel><h1>Protection, kept<br /><em>in context.</em></h1><p>Keep term, health, and corporate insurance in distinct sections with the renewal and coverage details you care about.</p></div><button className="primary-action" onClick={() => openModal("insurance")}><Plus size={15} /> Add policy</button></div><div className="insurance-grid">{blocks.map((block) => { const records = dashboard.insurances.filter((record) => record.insurance_type === block.type); return <article className="insurance-section" key={block.type}><div className="insurance-head"><div><SectionLabel>{block.type}</SectionLabel><h2>{block.title}</h2><p>{block.copy}</p></div><button className="small-plus" onClick={() => openModal("insurance", { insurance_type: block.type })}><Plus size={15} /></button></div>{records.length === 0 ? <p className="empty-row">No active policy records.</p> : records.map((record) => <div className="policy-card" key={textValue(record.id)}><strong>{textValue(record.provider)}</strong><span>{textValue(record.policy_number, "Policy number not added")}</span><div><span>Cover <b>{formatCurrency(record.cover_amount)}</b></span><span>Premium <b>{formatCurrency(record.premium_amount)}</b></span></div><small>Renewal: {textValue(record.renewal_date, "Not set")}</small><div className="policy-actions"><button onClick={() => openModal("insurance", record)}><Edit3 size={14} /> Edit</button><button onClick={() => removeRecord(textValue(record.id))}><Trash2 size={14} /> Remove</button></div></div>)}</article>; })}</div></div>;
+}
+
+function GuardrailsView({ dashboard, openModal, removeRecord }: { dashboard: Dashboard; openModal: (type: ModalType, record?: AnyRecord) => void; removeRecord: (id: string) => void }) {
+  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>DECISIONS · GUARDRAILS</SectionLabel><h1>Control above<br /><em>action.</em></h1><p>Guardrails are your standing decision rules. Thresholds monitor actual monthly spending; guardrails define the habits and limits you want to maintain.</p></div><button className="primary-action" onClick={() => openModal("guardrail")}><Plus size={15} /> Add guardrail</button></div><div className="guardrail-guide"><div><ShieldCheck size={19} /><strong>How guardrails work</strong></div><p>Create a spend cap, balance floor, emergency runway target, investment cap, or insurance review. Keep it active, pause it, edit it, or delete it as your household plan changes.</p></div><article className="panel cards-panel">{dashboard.guardrails.length === 0 ? <EmptyState icon={ShieldCheck} title="No guardrails recorded" body="Start with one rule that makes a future decision easier—for example, a cash-balance floor or a Shopping cap." action={<button className="primary-action" onClick={() => openModal("guardrail")}><Plus size={15} /> Add guardrail</button>} /> : <div className="card-grid">{dashboard.guardrails.map((record) => <div className="control-card" key={textValue(record.id)}><div className="control-card-head"><span className={`status-pill ${record.status === "PAUSED" ? "status-paused" : ""}`}>{textValue(record.status)}</span><div className="row-actions"><button onClick={() => openModal("guardrail", record)} aria-label="Edit guardrail"><Edit3 size={14} /></button><button onClick={() => removeRecord(textValue(record.id))} aria-label="Delete guardrail"><Trash2 size={14} /></button></div></div><h3>{textValue(record.label)}</h3><p>{textValue(record.notes, "No supporting note added.")}</p><div className="control-card-foot"><span>{textValue(record.guardrail_type).replaceAll("_", " ")}</span><strong>{record.threshold_amount ? formatCurrency(record.threshold_amount) : record.threshold_percentage ? `${numberValue(record.threshold_percentage)}%` : "Review"}</strong></div></div>)}</div>}</article></div>;
+}
+
+function StrategiesView({ dashboard, openModal, removeRecord }: { dashboard: Dashboard; openModal: (type: ModalType, record?: AnyRecord) => void; removeRecord: (id: string) => void }) {
+  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>DECISIONS · STRATEGIES</SectionLabel><h1>Make recurring<br /><em>choices explicit.</em></h1><p>Strategies are your repeatable operating notes: what triggers a review, which area it affects, how often you check, and what action to take.</p></div><button className="primary-action" onClick={() => openModal("strategy")}><Plus size={15} /> Add strategy</button></div><article className="panel cards-panel">{dashboard.strategies.length === 0 ? <EmptyState icon={Lightbulb} title="No strategies recorded" body="Create a rule such as a monthly investment review or a weekly groceries check." action={<button className="primary-action" onClick={() => openModal("strategy")}><Plus size={15} /> Add strategy</button>} /> : <div className="strategy-list">{dashboard.strategies.map((record) => <div className="strategy-row" key={textValue(record.id)}><div className="strategy-marker"><Lightbulb size={17} /></div><div className="strategy-body"><div><span className={`status-pill ${record.status === "PAUSED" ? "status-paused" : ""}`}>{textValue(record.status)}</span><span className="strategy-meta">{textValue(record.area)} · {textValue(record.cadence)}</span></div><h3>{textValue(record.title)}</h3><p><b>When:</b> {textValue(record.trigger_text, "Every review cycle")}</p><p><b>Do:</b> {textValue(record.action_text)}</p></div><div className="row-actions"><button onClick={() => openModal("strategy", record)} aria-label="Edit strategy"><Edit3 size={14} /></button><button onClick={() => removeRecord(textValue(record.id))} aria-label="Delete strategy"><Trash2 size={14} /></button></div></div>)}</div>}</article></div>;
+}
+
+function SignalsView({ dashboard, openModal, removeRecord, updateSignal }: { dashboard: Dashboard; openModal: (type: ModalType, record?: AnyRecord) => void; removeRecord: (id: string) => void; updateSignal: (record: AnyRecord) => void }) {
+  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>DECISIONS · SIGNALS</SectionLabel><h1>Watch the edges,<br /><em>not the noise.</em></h1><p>Signals combine automatic threshold warnings with the manual reminders you add for yourself. Automatic threshold signals update from the ledger; manual signals can be resolved or removed.</p></div><button className="primary-action" onClick={() => openModal("signal")}><Plus size={15} /> Add manual signal</button></div><article className="panel signals-board">{dashboard.signals.length === 0 ? <EmptyState icon={Radio} title="No active signals" body="Set a monthly threshold or add a manual reminder. Signals stay focused on the records that need a review." action={<button className="primary-action" onClick={() => openModal("signal")}><Plus size={15} /> Add signal</button>} /> : dashboard.signals.map((signal) => { const computed = Boolean(signal.computed); const relatedCategory = textValue(signal.related_category); return <div className={`signal-card ${signalTone(signal.severity)}`} key={textValue(signal.id)}><div className="signal-card-main"><span className={`severity-dot ${signalTone(signal.severity)}`} /><div><div className="signal-card-title"><h3>{textValue(signal.title)}</h3>{computed && <span className="system-label">AUTO</span>}</div><p>{textValue(signal.message)}</p>{relatedCategory ? <small>{relatedCategory}</small> : null}</div></div>{computed ? <span className="system-label">FROM THRESHOLD</span> : <div className="signal-controls">{!Boolean(signal.is_resolved) && <button onClick={() => updateSignal({ ...signal, is_resolved: true })}><BadgeCheck size={14} /> Resolve</button>}<button onClick={() => openModal("signal", signal)} aria-label="Edit manual signal"><Edit3 size={14} /></button><button onClick={() => removeRecord(textValue(signal.id))} aria-label="Delete manual signal"><Trash2 size={14} /></button></div>}</div>; })}</article></div>;
+}
+
+function HelpView({ helpArticles, openModal, removeRecord }: { helpArticles: AnyRecord[]; openModal: (type: ModalType, record?: AnyRecord) => void; removeRecord: (id: string) => void }) {
+  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>SYSTEM · HELP CENTER</SectionLabel><h1>A calmer<br /><em>operating manual.</em></h1><p>ActiveCFO is manual by design. Set a monthly plan, log the facts, maintain your allocations, and review the signals that your own rules produce.</p></div><button className="primary-action" onClick={() => openModal("help")}><Plus size={15} /> Add help article</button></div><div className="help-quick-grid"><article><FilePlus2 size={18} /><h3>1. Set the month</h3><p>Enter your opening virtual balance and category thresholds first.</p></article><article><ClipboardList size={18} /><h3>2. Keep the ledger</h3><p>Record income and expenses using Needs, Wants, or Investment buckets.</p></article><article><HandCoins size={18} /><h3>3. Map capital</h3><p>Add emergency fund, mutual fund, ETF, crypto, or custom allocations only when you make them.</p></article><article><ShieldCheck size={18} /><h3>4. Review signals</h3><p>Use thresholds and guardrails to spot where a review is due.</p></article></div><article className="panel articles-panel"><div className="panel-head"><div><SectionLabel>YOUR HELP ARTICLES</SectionLabel><h2>Editable workspace notes</h2></div></div>{helpArticles.length === 0 ? <EmptyState icon={BookOpen} title="No custom help articles" body="Add household-specific instructions, recurring checklists, or explanations that should stay with the workspace." action={<button className="secondary-action" onClick={() => openModal("help")}><Plus size={15} /> Write an article</button>} /> : <div className="article-list">{helpArticles.map((article) => <div className="article-row" key={textValue(article.id)}><div><span className="bucket-tag bucket-investment">{textValue(article.section).replaceAll("_", " ")}</span><h3>{textValue(article.title)}</h3><p>{textValue(article.summary)}</p></div><div className="row-actions"><button onClick={() => openModal("help", article)} aria-label="Edit help article"><Edit3 size={14} /></button><button onClick={() => removeRecord(textValue(article.id))} aria-label="Delete help article"><Trash2 size={14} /></button></div></div>)}</div>}</article></div>;
+}
+
+function Field({ label, name, type = "text", defaultValue, required = false, placeholder }: { label: string; name: string; type?: string; defaultValue?: unknown; required?: boolean; placeholder?: string }) {
+  return <label className="form-field"><span>{label}</span><input name={name} type={type} defaultValue={defaultValue == null ? "" : String(defaultValue)} required={required} placeholder={placeholder} /></label>;
+}
+
+function SelectField({ label, name, options, defaultValue }: { label: string; name: string; options: Array<{ value: string; label?: string }>; defaultValue?: unknown }) {
+  return <label className="form-field"><span>{label}</span><select name={name} defaultValue={defaultValue == null ? options[0]?.value : String(defaultValue)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label ?? option.value.replaceAll("_", " ")}</option>)}</select></label>;
+}
+
+function TextareaField({ label, name, defaultValue, placeholder }: { label: string; name: string; defaultValue?: unknown; placeholder?: string }) {
+  return <label className="form-field form-field-wide"><span>{label}</span><textarea name={name} defaultValue={defaultValue == null ? "" : String(defaultValue)} placeholder={placeholder} rows={3} /></label>;
+}
+
+function CrudModal({ modal, onClose, onSave, monthStart, saving }: { modal: ModalState; onClose: () => void; onSave: (type: ModalType, record: AnyRecord | undefined, form: FormData) => void | Promise<void>; monthStart: string; saving: boolean }) {
+  if (!modal) return null;
+  const record = modal.record ?? {};
+  const title: Record<ModalType, string> = { settings: "Monthly settings", threshold: "Monthly threshold", ledger: "Ledger record", investment: "Investment allocation", insurance: "Insurance policy", guardrail: "Guardrail", strategy: "Strategy", signal: "Manual signal", help: "Help article" };
+  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void onSave(modal.type, modal.record, new FormData(event.currentTarget)); };
+  return <div className="modal-layer" onMouseDown={onClose}><form className="crud-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}><div className="modal-head"><div><SectionLabel>{modal.record ? "EDIT RECORD" : "CREATE RECORD"}</SectionLabel><h2>{title[modal.type]}</h2></div><button type="button" aria-label="Close" onClick={onClose}><X size={17} /></button></div><div className="form-grid">
+    {modal.type === "settings" && <><Field label="Opening virtual balance" name="openingVirtualBalance" type="number" required defaultValue={record.opening_virtual_balance} placeholder="0" /><Field label="Target emergency months" name="targetEmergencyMonths" type="number" required defaultValue={record.target_emergency_months ?? 6} /><TextareaField label="Notes" name="notes" defaultValue={record.notes} placeholder="Optional month note" /></>}
+    {modal.type === "threshold" && <><SelectField label="Budget bucket" name="bucket" defaultValue={record.bucket} options={[{ value: "NEEDS" }, { value: "WANTS" }, { value: "INVESTMENT" }]} /><Field label="Detailed category" name="category" required defaultValue={record.category} placeholder="Fuel, Entertainment, Mutual Funds…" /><Field label="Monthly threshold" name="thresholdAmount" type="number" required defaultValue={record.threshold_amount} placeholder="0" /><Field label="Warning at (%)" name="warningPercentage" type="number" required defaultValue={record.warning_percentage ?? 80} /><TextareaField label="Notes" name="notes" defaultValue={record.notes} placeholder="Optional context" /></>}
+    {modal.type === "ledger" && <><Field label="Date" name="entryDate" type="date" required defaultValue={record.entry_date ?? today()} /><SelectField label="Entry type" name="entryType" defaultValue={record.entry_type} options={[{ value: "EXPENSE" }, { value: "INCOME" }]} /><SelectField label="First grouping" name="bucket" defaultValue={record.bucket} options={[{ value: "NEEDS" }, { value: "WANTS" }, { value: "INVESTMENT" }, { value: "INCOME" }, { value: "OTHER" }]} /><Field label="Detailed category" name="category" required defaultValue={record.category} placeholder="Fuel, Shopping, Salary…" /><Field label="Description" name="description" required defaultValue={record.description} placeholder="What was this for?" /><Field label="Amount" name="amount" type="number" required defaultValue={record.amount} placeholder="0" /><Field label="Payment method" name="paymentMethod" defaultValue={record.payment_method} placeholder="UPI, Cash, Card…" /><TextareaField label="Notes" name="notes" defaultValue={record.notes} placeholder="Optional note" /></>}
+    {modal.type === "investment" && <><SelectField label="Allocation type" name="recordType" defaultValue={record.record_type} options={[{ value: "EMERGENCY_FUND", label: "Emergency fund" }, { value: "MUTUAL_FUND", label: "Mutual fund" }, { value: "ETF" }, { value: "CRYPTO", label: "Crypto" }, { value: "CUSTOM", label: "Custom allocation" }]} /><Field label="Name" name="name" required defaultValue={record.name} placeholder="e.g. Emergency cash, Nifty ETF" /><Field label="Allocation date" name="allocationDate" type="date" required defaultValue={record.allocation_date ?? today()} /><Field label="Units (optional)" name="units" type="number" defaultValue={record.units} placeholder="0" /><Field label="Cost basis" name="costBasis" type="number" required defaultValue={record.cost_basis} placeholder="0" /><Field label="Current value (optional)" name="currentValue" type="number" defaultValue={record.current_value} placeholder="0" /><Field label="Platform / location" name="platform" defaultValue={record.platform} placeholder="e.g. Bank, broker, wallet" /><TextareaField label="Notes" name="notes" defaultValue={record.notes} placeholder="Optional note" /></>}
+    {modal.type === "insurance" && <><SelectField label="Insurance section" name="insuranceType" defaultValue={record.insurance_type} options={[{ value: "TERM", label: "Term insurance" }, { value: "HEALTH", label: "Health insurance" }, { value: "CORPORATE", label: "Corporate insurance" }]} /><Field label="Provider" name="provider" required defaultValue={record.provider} placeholder="Insurer / employer" /><Field label="Policy number" name="policyNumber" defaultValue={record.policy_number} placeholder="Optional" /><Field label="Cover amount" name="coverAmount" type="number" required defaultValue={record.cover_amount} placeholder="0" /><Field label="Premium amount" name="premiumAmount" type="number" required defaultValue={record.premium_amount} placeholder="0" /><SelectField label="Premium frequency" name="premiumFrequency" defaultValue={record.premium_frequency} options={[{ value: "MONTHLY" }, { value: "QUARTERLY" }, { value: "SEMI_ANNUAL", label: "Semi-annual" }, { value: "ANNUAL" }]} /><Field label="Renewal date" name="renewalDate" type="date" defaultValue={record.renewal_date} /><Field label="Covered members" name="coveredMembers" defaultValue={record.covered_members} placeholder="Optional" /><TextareaField label="Notes" name="notes" defaultValue={record.notes} placeholder="Optional policy notes" /></>}
+    {modal.type === "guardrail" && <><SelectField label="Guardrail type" name="guardrailType" defaultValue={record.guardrail_type} options={[{ value: "SPEND_CAP", label: "Spend cap" }, { value: "BALANCE_FLOOR", label: "Balance floor" }, { value: "EMERGENCY_RUNWAY", label: "Emergency runway" }, { value: "INVESTMENT_CAP", label: "Investment cap" }, { value: "INSURANCE_REVIEW", label: "Insurance review" }]} /><Field label="Label" name="label" required defaultValue={record.label} placeholder="e.g. Shopping spend cap" /><Field label="Related category" name="category" defaultValue={record.category} placeholder="Optional" /><Field label="Threshold amount" name="thresholdAmount" type="number" defaultValue={record.threshold_amount} placeholder="Optional" /><Field label="Threshold percentage" name="thresholdPercentage" type="number" defaultValue={record.threshold_percentage} placeholder="Optional" /><SelectField label="Status" name="status" defaultValue={record.status} options={[{ value: "ACTIVE" }, { value: "PAUSED" }]} /><TextareaField label="What should this rule protect?" name="notes" defaultValue={record.notes} placeholder="Describe the decision rule" /></>}
+    {modal.type === "strategy" && <><Field label="Strategy title" name="title" required defaultValue={record.title} placeholder="e.g. Monthly investments review" /><SelectField label="Area" name="area" defaultValue={record.area} options={[{ value: "NEEDS" }, { value: "WANTS" }, { value: "INVESTMENT" }, { value: "INSURANCE" }, { value: "CASHFLOW" }]} /><SelectField label="Cadence" name="cadence" defaultValue={record.cadence} options={[{ value: "WEEKLY" }, { value: "MONTHLY" }, { value: "QUARTERLY" }, { value: "ANNUAL" }]} /><SelectField label="Status" name="status" defaultValue={record.status} options={[{ value: "ACTIVE" }, { value: "PAUSED" }, { value: "COMPLETE" }]} /><TextareaField label="Review trigger" name="triggerText" defaultValue={record.trigger_text} placeholder="When should this be reviewed?" /><TextareaField label="Action" name="actionText" defaultValue={record.action_text} placeholder="What should you do?" /></>}
+    {modal.type === "signal" && <><SelectField label="Severity" name="severity" defaultValue={record.severity} options={[{ value: "INFO" }, { value: "ATTENTION" }, { value: "ALERT" }]} /><Field label="Signal title" name="title" required defaultValue={record.title} placeholder="What needs attention?" /><Field label="Related category" name="relatedCategory" defaultValue={record.related_category} placeholder="Optional" /><TextareaField label="Message" name="message" defaultValue={record.message} placeholder="Add the context you need to remember" /></>}
+    {modal.type === "help" && <><SelectField label="Help section" name="section" defaultValue={record.section} options={[{ value: "GETTING_STARTED", label: "Getting started" }, { value: "MONTHLY_SETUP", label: "Monthly setup" }, { value: "LEDGER" }, { value: "INVESTMENTS" }, { value: "GUARDRAILS" }]} /><Field label="Title" name="title" required defaultValue={record.title} placeholder="Article title" /><Field label="Slug" name="slug" required defaultValue={record.slug} placeholder="monthly-setup-checklist" /><TextareaField label="Summary" name="summary" defaultValue={record.summary} placeholder="Short description" /><TextareaField label="Article body" name="body" defaultValue={record.body} placeholder="Write instructions for this workspace" /></>}
+  </div><div className="modal-actions"><button type="button" className="secondary-action" onClick={onClose} disabled={saving}>Cancel</button><button type="submit" className="primary-action" disabled={saving}>{saving ? <><Loader2 size={15} className="spin" /> Saving…</> : <><BadgeCheck size={15} /> Save record</>}</button></div><small className="modal-caption">{modal.type === "settings" || modal.type === "threshold" ? `Applies to ${monthLabel(monthStart)}.` : "Saved directly to the ActiveCFO Supabase workspace."}</small></form></div>;
 }
 
 export default function Home() {
-  const [user, setUser] = useState<UserName>(() => (localStorage.getItem("activecfo-user") as UserName) || "Saquib");
-  const [activeView, setActiveView] = useState<ViewName>("overview");
+  const [profileCode, setProfileCode] = useState<ProfileCode>("saquib");
+  const [monthStart, setMonthStart] = useState(currentMonthStart);
+  const [activeView, setActiveView] = useState<ViewId>("overview");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [showExpense, setShowExpense] = useState(false);
-  const [expenseAmount, setExpenseAmount] = useState("");
-  const profile = useMemo(() => PROFILES[user], [user]);
+  const [modal, setModal] = useState<ModalState>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const queryInput = useMemo(() => ({ profileCode, monthStart }), [profileCode, monthStart]);
+  const dashboardQuery = trpc.activecfo.dashboard.useQuery(queryInput);
+  const helpQuery = trpc.activecfo.help.list.useQuery();
+  const utils = trpc.useUtils();
+  const refresh = async () => { await Promise.all([utils.activecfo.dashboard.invalidate(queryInput), utils.activecfo.help.invalidate()]); };
+  const settingsMutation = trpc.activecfo.monthlySettings.upsert.useMutation({ onSuccess: () => void refresh() });
+  const thresholdMutation = trpc.activecfo.thresholds.upsert.useMutation({ onSuccess: () => void refresh() });
+  const thresholdRemoveMutation = trpc.activecfo.thresholds.remove.useMutation({ onSuccess: () => void refresh() });
+  const ledgerCreateMutation = trpc.activecfo.ledger.create.useMutation({ onSuccess: () => void refresh() });
+  const ledgerUpdateMutation = trpc.activecfo.ledger.update.useMutation({ onSuccess: () => void refresh() });
+  const ledgerRemoveMutation = trpc.activecfo.ledger.remove.useMutation({ onSuccess: () => void refresh() });
+  const investmentCreateMutation = trpc.activecfo.investments.create.useMutation({ onSuccess: () => void refresh() });
+  const investmentUpdateMutation = trpc.activecfo.investments.update.useMutation({ onSuccess: () => void refresh() });
+  const investmentRemoveMutation = trpc.activecfo.investments.remove.useMutation({ onSuccess: () => void refresh() });
+  const insuranceCreateMutation = trpc.activecfo.insurance.create.useMutation({ onSuccess: () => void refresh() });
+  const insuranceUpdateMutation = trpc.activecfo.insurance.update.useMutation({ onSuccess: () => void refresh() });
+  const insuranceRemoveMutation = trpc.activecfo.insurance.remove.useMutation({ onSuccess: () => void refresh() });
+  const guardrailCreateMutation = trpc.activecfo.guardrails.create.useMutation({ onSuccess: () => void refresh() });
+  const guardrailUpdateMutation = trpc.activecfo.guardrails.update.useMutation({ onSuccess: () => void refresh() });
+  const guardrailRemoveMutation = trpc.activecfo.guardrails.remove.useMutation({ onSuccess: () => void refresh() });
+  const strategyCreateMutation = trpc.activecfo.strategies.create.useMutation({ onSuccess: () => void refresh() });
+  const strategyUpdateMutation = trpc.activecfo.strategies.update.useMutation({ onSuccess: () => void refresh() });
+  const strategyRemoveMutation = trpc.activecfo.strategies.remove.useMutation({ onSuccess: () => void refresh() });
+  const signalCreateMutation = trpc.activecfo.signals.create.useMutation({ onSuccess: () => void refresh() });
+  const signalUpdateMutation = trpc.activecfo.signals.update.useMutation({ onSuccess: () => void refresh() });
+  const signalRemoveMutation = trpc.activecfo.signals.remove.useMutation({ onSuccess: () => void refresh() });
+  const helpCreateMutation = trpc.activecfo.help.create.useMutation({ onSuccess: () => void refresh() });
+  const helpUpdateMutation = trpc.activecfo.help.update.useMutation({ onSuccess: () => void refresh() });
+  const helpRemoveMutation = trpc.activecfo.help.remove.useMutation({ onSuccess: () => void refresh() });
+  const dashboard = (dashboardQuery.data as Dashboard | undefined);
+  const zeroSummary: Summary = { openingBalance: 0, income: 0, expenses: 0, virtualBalance: 0, investedCapital: 0, investmentValue: 0, netWorth: 0, emergencyFund: 0, needsSpent: 0, wantsSpent: 0, investmentSpent: 0, wantsLimit: 0, wantsPercentage: 0, thresholdSummary: [] };
 
-  useEffect(() => { localStorage.setItem("activecfo-user", user); }, [user]);
+  const openModal = (type: ModalType, record?: AnyRecord) => setModal({ type, record });
+  const changeProfile = (value: ProfileCode) => { setProfileCode(value); setActiveView("overview"); toast.success(`Opened ${value === "saquib" ? "Saquib" : "Rahat"}’s workspace`); };
+  const optionalText = (form: FormData, field: string) => { const value = String(form.get(field) ?? "").trim(); return value || null; };
+  const optionalNumber = (form: FormData, field: string) => { const value = String(form.get(field) ?? "").trim(); return value === "" ? null : Number(value); };
+  const requiredText = (form: FormData, field: string) => String(form.get(field) ?? "").trim();
+  const requiredNumber = (form: FormData, field: string) => Number(form.get(field) ?? 0);
+  const complete = (message: string) => { toast.success(message); setModal(null); };
+  const reportError = (error: unknown) => toast.error(error instanceof Error ? error.message.replace(/^Supabase request failed \(\d+\):\s*/, "") : "The record could not be saved. Please try again.");
 
-  const handleUserChange = (name: UserName) => { setUser(name); toast.success(`Switched to ${name}'s local workspace`); };
-  const handleExpense = () => {
-    const value = Number(expenseAmount);
-    if (!value || value <= 0) { toast.error("Enter a positive expense amount"); return; }
-    toast.success(`${formatCurrency(value)} added to ${user}'s wants ledger`);
-    setExpenseAmount(""); setShowExpense(false);
+  const saveModal = async (type: ModalType, record: AnyRecord | undefined, form: FormData) => {
+    setIsSaving(true);
+    try {
+      if (type === "settings") { await settingsMutation.mutateAsync({ profileCode, monthStart, openingVirtualBalance: requiredNumber(form, "openingVirtualBalance"), targetEmergencyMonths: requiredNumber(form, "targetEmergencyMonths"), notes: optionalText(form, "notes") }); complete("Monthly settings saved"); return; }
+      if (type === "threshold") { await thresholdMutation.mutateAsync({ profileCode, monthStart, bucket: requiredText(form, "bucket") as "NEEDS" | "WANTS" | "INVESTMENT", category: requiredText(form, "category"), thresholdAmount: requiredNumber(form, "thresholdAmount"), warningPercentage: requiredNumber(form, "warningPercentage"), notes: optionalText(form, "notes") }); complete("Monthly threshold saved"); return; }
+      if (type === "ledger") { const payload = { profileCode, entryDate: requiredText(form, "entryDate"), entryType: requiredText(form, "entryType") as "INCOME" | "EXPENSE", bucket: requiredText(form, "bucket") as "INCOME" | "NEEDS" | "WANTS" | "INVESTMENT" | "OTHER", category: requiredText(form, "category"), description: requiredText(form, "description"), amount: requiredNumber(form, "amount"), paymentMethod: optionalText(form, "paymentMethod"), notes: optionalText(form, "notes") }; if (record?.id) await ledgerUpdateMutation.mutateAsync({ id: textValue(record.id), ...payload }); else await ledgerCreateMutation.mutateAsync(payload); complete(record ? "Ledger record updated" : "Ledger record added"); return; }
+      if (type === "investment") { const payload = { profileCode, recordType: requiredText(form, "recordType") as "EMERGENCY_FUND" | "MUTUAL_FUND" | "ETF" | "CRYPTO" | "CUSTOM", name: requiredText(form, "name"), allocationDate: requiredText(form, "allocationDate"), units: optionalNumber(form, "units"), costBasis: requiredNumber(form, "costBasis"), currentValue: optionalNumber(form, "currentValue"), platform: optionalText(form, "platform"), notes: optionalText(form, "notes"), isActive: true }; if (record?.id) await investmentUpdateMutation.mutateAsync({ id: textValue(record.id), ...payload }); else await investmentCreateMutation.mutateAsync(payload); complete(record?.id ? "Allocation updated" : "Allocation added"); return; }
+      if (type === "insurance") { const payload = { profileCode, insuranceType: requiredText(form, "insuranceType") as "TERM" | "HEALTH" | "CORPORATE", provider: requiredText(form, "provider"), policyNumber: optionalText(form, "policyNumber"), coverAmount: requiredNumber(form, "coverAmount"), premiumAmount: requiredNumber(form, "premiumAmount"), premiumFrequency: requiredText(form, "premiumFrequency") as "MONTHLY" | "QUARTERLY" | "SEMI_ANNUAL" | "ANNUAL", renewalDate: optionalText(form, "renewalDate"), coveredMembers: optionalText(form, "coveredMembers"), notes: optionalText(form, "notes"), isActive: true }; if (record?.id) await insuranceUpdateMutation.mutateAsync({ id: textValue(record.id), ...payload }); else await insuranceCreateMutation.mutateAsync(payload); complete(record?.id ? "Policy updated" : "Policy added"); return; }
+      if (type === "guardrail") { const payload = { profileCode, guardrailType: requiredText(form, "guardrailType") as "SPEND_CAP" | "BALANCE_FLOOR" | "EMERGENCY_RUNWAY" | "INVESTMENT_CAP" | "INSURANCE_REVIEW", label: requiredText(form, "label"), category: optionalText(form, "category"), thresholdAmount: optionalNumber(form, "thresholdAmount"), thresholdPercentage: optionalNumber(form, "thresholdPercentage"), status: requiredText(form, "status") as "ACTIVE" | "PAUSED", notes: optionalText(form, "notes") }; if (record?.id) await guardrailUpdateMutation.mutateAsync({ id: textValue(record.id), ...payload }); else await guardrailCreateMutation.mutateAsync(payload); complete(record?.id ? "Guardrail updated" : "Guardrail added"); return; }
+      if (type === "strategy") { const payload = { profileCode, title: requiredText(form, "title"), area: requiredText(form, "area") as "NEEDS" | "WANTS" | "INVESTMENT" | "INSURANCE" | "CASHFLOW", cadence: requiredText(form, "cadence") as "WEEKLY" | "MONTHLY" | "QUARTERLY" | "ANNUAL", triggerText: optionalText(form, "triggerText"), actionText: requiredText(form, "actionText"), status: requiredText(form, "status") as "ACTIVE" | "PAUSED" | "COMPLETE" }; if (record?.id) await strategyUpdateMutation.mutateAsync({ id: textValue(record.id), ...payload }); else await strategyCreateMutation.mutateAsync(payload); complete(record?.id ? "Strategy updated" : "Strategy added"); return; }
+      if (type === "signal") { const payload = { profileCode, severity: requiredText(form, "severity") as "INFO" | "ATTENTION" | "ALERT", title: requiredText(form, "title"), message: requiredText(form, "message"), relatedCategory: optionalText(form, "relatedCategory"), isResolved: Boolean(record?.is_resolved) }; if (record?.id) await signalUpdateMutation.mutateAsync({ id: textValue(record.id), ...payload }); else await signalCreateMutation.mutateAsync(payload); complete(record?.id ? "Signal updated" : "Signal added"); return; }
+      if (type === "help") { const payload = { section: requiredText(form, "section") as "GETTING_STARTED" | "MONTHLY_SETUP" | "LEDGER" | "INVESTMENTS" | "GUARDRAILS", slug: requiredText(form, "slug"), title: requiredText(form, "title"), summary: requiredText(form, "summary"), body: requiredText(form, "body") }; if (record?.id) await helpUpdateMutation.mutateAsync({ id: textValue(record.id), ...payload }); else await helpCreateMutation.mutateAsync(payload); complete(record?.id ? "Help article updated" : "Help article added"); }
+    } catch (error) { reportError(error); } finally { setIsSaving(false); }
   };
 
-  return (
-    <div className="app-shell">
-      <Sidebar activeView={activeView} onNavigate={setActiveView} user={user} open={menuOpen} onClose={() => setMenuOpen(false)} />
-      <div className="main-shell"><AppHeader profile={profile} user={user} onUserChange={handleUserChange} onMenu={() => setMenuOpen(true)} /><main className="main-content">
-        <div className="mobile-profile-strip"><div><span>LOCAL PROFILE</span><strong>{user}</strong></div><div className="profile-switch-buttons"><button className={user === "Saquib" ? "selected" : ""} onClick={() => handleUserChange("Saquib")}>SQ</button><button className={user === "Rahat" ? "selected" : ""} onClick={() => handleUserChange("Rahat")}>RH</button></div></div>
-        {activeView === "overview" && <Overview profile={profile} user={user} onNavigate={setActiveView} onAddExpense={() => setShowExpense(true)} />}
-        {activeView === "budget" && <BudgetView profile={profile} onAddExpense={() => setShowExpense(true)} />}
-        {activeView === "analytics" && <AnalyticsView profile={profile} />}
-        {!(["overview", "budget", "analytics"] as ViewName[]).includes(activeView) && <PlaceholderView view={activeView} onNavigate={setActiveView} />}
-      </main><footer className="main-footer"><span><SignalDot /> Private workspace · data stays in this browser</span><span>ActiveCFO / manual by design</span></footer></div>
-      {showExpense && <div className="modal-layer" onClick={() => setShowExpense(false)}><div className="expense-modal" onClick={(event) => event.stopPropagation()}><div className="modal-head"><div><SectionLabel>QUICK ENTRY · {user.toUpperCase()}</SectionLabel><h2>Log an expense</h2></div><button className="more-button" onClick={() => setShowExpense(false)} aria-label="Close"><X size={16} /></button></div><label>Amount in INR<input autoFocus inputMode="decimal" value={expenseAmount} onChange={(event) => setExpenseAmount(event.target.value)} placeholder="e.g. 1200" /></label><label>Category<select defaultValue="Wants"><option>Wants</option><option>Needs</option><option>Protection</option><option>Investments</option></select></label><button className="primary-action modal-submit" onClick={handleExpense}><Plus size={16} /> Add to ledger</button><p className="modal-note">This is a local-only entry for {user}. No bank connection or authentication required.</p></div></div>}
-    </div>
-  );
+  const remove = async (kind: "threshold" | "ledger" | "investment" | "insurance" | "guardrail" | "strategy" | "signal" | "help", id: string) => { if (!window.confirm("Remove this record? This cannot be undone.")) return; const map = { threshold: thresholdRemoveMutation, ledger: ledgerRemoveMutation, investment: investmentRemoveMutation, insurance: insuranceRemoveMutation, guardrail: guardrailRemoveMutation, strategy: strategyRemoveMutation, signal: signalRemoveMutation, help: helpRemoveMutation }; try { await map[kind].mutateAsync({ id }); toast.success("Record removed"); } catch (error) { reportError(error); } };
+  const updateSignal = async (record: AnyRecord) => { try { await signalUpdateMutation.mutateAsync({ id: textValue(record.id), profileCode, severity: textValue(record.severity) as "INFO" | "ATTENTION" | "ALERT", title: textValue(record.title), message: textValue(record.message), relatedCategory: textValue(record.related_category) || null, isResolved: Boolean(record.is_resolved) }); toast.success("Signal resolved"); } catch (error) { reportError(error); } };
+
+  const renderView = () => {
+    if (!dashboard) return <LoadingPane />;
+    if (activeView === "overview") return <Overview dashboard={dashboard} profileCode={profileCode} monthStart={monthStart} setView={setActiveView} openModal={openModal} />;
+    if (activeView === "setup") return <MonthlySetup dashboard={dashboard} monthStart={monthStart} openModal={openModal} removeThreshold={(id) => remove("threshold", id)} />;
+    if (activeView === "ledger") return <LedgerView dashboard={dashboard} openModal={openModal} removeRecord={(id) => remove("ledger", id)} />;
+    if (activeView === "investments") return <InvestmentsView dashboard={dashboard} openModal={openModal} removeRecord={(id) => remove("investment", id)} />;
+    if (activeView === "insurance") return <InsuranceView dashboard={dashboard} openModal={openModal} removeRecord={(id) => remove("insurance", id)} />;
+    if (activeView === "guardrails") return <GuardrailsView dashboard={dashboard} openModal={openModal} removeRecord={(id) => remove("guardrail", id)} />;
+    if (activeView === "strategies") return <StrategiesView dashboard={dashboard} openModal={openModal} removeRecord={(id) => remove("strategy", id)} />;
+    if (activeView === "signals") return <SignalsView dashboard={dashboard} openModal={openModal} removeRecord={(id) => remove("signal", id)} updateSignal={updateSignal} />;
+    return <HelpView helpArticles={(helpQuery.data as AnyRecord[] | undefined) ?? []} openModal={openModal} removeRecord={(id) => remove("help", id)} />;
+  };
+
+  return <div className="app-shell"><Sidebar activeView={activeView} onNavigate={setActiveView} profileCode={profileCode} summary={dashboard?.summary ?? zeroSummary} open={menuOpen} onClose={() => setMenuOpen(false)} /><div className="main-shell"><AppHeader profileCode={profileCode} onProfileChange={changeProfile} onMenu={() => setMenuOpen(true)} monthStart={monthStart} onMonthChange={setMonthStart} /><main className="main-content">{dashboardQuery.isError ? <EmptyState icon={CircleHelp} title="The workspace could not load" body="Check the Supabase connection and try again." action={<button className="primary-action" onClick={() => void dashboardQuery.refetch()}>Retry</button>} /> : renderView()}</main><footer className="main-footer"><span><SignalDot /> Private two-profile workspace · data stored in Supabase</span><span>ActiveCFO / manual by design</span></footer></div><CrudModal modal={modal} onClose={() => setModal(null)} onSave={saveModal} monthStart={monthStart} saving={isSaving} /></div>;
 }
