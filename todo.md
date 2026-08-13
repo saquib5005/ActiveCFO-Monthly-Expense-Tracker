@@ -16,3 +16,4 @@
 - [x] Await every CRUD mutation before showing success, and surface server errors instead of closing forms optimistically.
 - [x] Save a final checkpoint and deliver the updated project.
 - [x] Create and maintain decisions.md, Flow.md, Feature.md, Architecture.md, constrains.md, and rollback.md with explicit implementation comments where useful.
+- [x] Audit and confirm end-to-end connections among Supabase tables, tRPC procedures, feature views, and menu routes.
