@@ -1,3 +1,5 @@
+// Product boundary: this UI intentionally provides a two-profile workspace only.
+// Do not introduce authentication, login redirects, or browser Supabase credentials here.
 import { trpc } from "@/lib/trpc";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";

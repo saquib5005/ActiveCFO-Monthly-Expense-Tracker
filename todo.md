@@ -15,3 +15,4 @@
 - [x] Verify persistence, calculations, navigation, and responsive behavior.
 - [x] Await every CRUD mutation before showing success, and surface server errors instead of closing forms optimistically.
 - [x] Save a final checkpoint and deliver the updated project.
+- [x] Create and maintain decisions.md, Flow.md, Feature.md, Architecture.md, constrains.md, and rollback.md with explicit implementation comments where useful.

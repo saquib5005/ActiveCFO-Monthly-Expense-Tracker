@@ -1,3 +1,5 @@
+// Security boundary: every Supabase operation in ActiveCFO stays server-side.
+// The frontend only speaks to the public tRPC procedures; it never receives a database key.
 import { z } from "zod";
 
 const SUPABASE_URL = "https://himcjclfbzoposhxmlfg.supabase.co";
@@ -111,6 +113,8 @@ export async function deleteRow(table: string, id: string) {
   return { id };
 }
 
+// Calculation boundary: dashboard values are deterministic summaries of saved records,
+// not bank reconciliations, forecasts, investment advice, or automatically sourced data.
 export function calculateDashboard(input: {
   setting: MonthlySetting;
   ledger: LedgerEntry[];
