@@ -14,4 +14,4 @@
 - [x] Build fully working CRUD screens and modal forms for all requested menus.
 - [x] Verify persistence, calculations, navigation, and responsive behavior.
 - [x] Await every CRUD mutation before showing success, and surface server errors instead of closing forms optimistically.
-- [ ] Save a final checkpoint and deliver the updated project.
+- [x] Save a final checkpoint and deliver the updated project.
