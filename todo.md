@@ -22,3 +22,6 @@
 - [x] Expand Global Dashboard with data-driven budget, savings, cash-flow, breakdown, variance, 12-month trend, daily accumulation, and calendar-intensity analytics.
 - [x] Add monthly expense export actions for CSV and PDF using the selected Supabase profile, year, and month.
 - [x] Update DECISIONS.md, FLOW.md, Feature.md, and Architecture.md for the detailed analytics and export behavior.
+- [ ] Audit Git and ignore rules for secrets before exporting the repository.
+- [ ] Update README.md with current architecture, setup, security, analytics, and export guidance.
+- [ ] Commit only safe project files and push the verified codebase to the user-provided GitHub repository.
