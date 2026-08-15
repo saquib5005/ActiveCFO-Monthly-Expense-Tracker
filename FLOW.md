@@ -1,11 +1,16 @@
 # ActiveCFO User and Data Flows
 
+## Documentation Rule
+
+`FLOW.md` is the **canonical, uppercase** flow record. It is maintained alongside `DECISIONS.md` and captures user-visible workflows from the beginning of the project through the current release.
+
 ## Primary Navigation Flow
 
 ```mermaid
 flowchart TD
   A[Open ActiveCFO] --> B[Select Saquib or Rahat]
   B --> C[Overview]
+  B --> GD[Global Dashboard]
   C --> D[Monthly Setup]
   D --> E[Set opening virtual balance]
   D --> F[Add Needs, Wants, Investment thresholds]
@@ -16,12 +21,15 @@ flowchart TD
   C --> K[Insurance]
   C --> L[Guardrails, Strategies, Signals]
   C --> M[Help Center]
+  GD --> S[Select year and month]
+  S --> T[Server requests selected-month ledger and thresholds]
   H --> N[Supabase record changes]
   J --> N
   K --> N
   L --> N
-  N --> O[Server recalculates dashboard]
+  N --> O[Server recalculates dashboard and global analytics]
   O --> C
+  O --> GD
 ```
 
 ## Monthly Setup Flow
@@ -57,7 +65,15 @@ Investment rows are separate from the ledger because they carry allocation-speci
 | Manual signal | User adds it from Signals | Stored in `activecfo_signals` | Edit, resolve, or delete it. |
 | Guardrail | User defines a standing rule | Stored in `activecfo_guardrails` | Edit, pause, or delete it. |
 
+## Global Dashboard Flow
+
+| Step | User action | Server action | Result |
+| --- | --- | --- | --- |
+| 1 | Open Global Dashboard. | Loads the selected profile’s current year/month analysis. | The dashboard uses actual saved Supabase data. |
+| 2 | Choose a year and month. | Validates the period and creates a month window. | The analysis query refreshes. |
+| 3 | View charts. | Aggregates expense rows by day, bucket, category, and threshold. | Charts show monthly spending trend, allocation mix, top categories, and threshold usage. |
+| 4 | Add or edit a ledger record. | Persists a record through tRPC and Supabase. | Refreshing the Global Dashboard reflects the new analysis. |
+
 ## CRUD Outcome Flow
 
 Every form save waits for the server mutation to succeed before the modal closes and before a success message appears. A failed request leaves the form open and displays the server error. Deletes require a browser confirmation, wait for a successful response, and then refresh the relevant data view.
-

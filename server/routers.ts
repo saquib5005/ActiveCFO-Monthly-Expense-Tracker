@@ -3,6 +3,7 @@ import {
   createRow,
   deleteRow,
   getDashboard,
+  getGlobalDashboard,
   idSchema,
   listRows,
   monthSchema,
@@ -105,6 +106,7 @@ export const appRouter = router({
   activecfo: router({
     profiles: publicProcedure.query(async () => listRows<{ code: "saquib" | "rahat"; display_name: string }>("activecfo_profiles", undefined, "order=display_name.asc")),
     dashboard: publicProcedure.input(z.object({ profileCode: profileCodeSchema, monthStart: monthSchema })).query(({ input }) => getDashboard(input.profileCode, input.monthStart)),
+    globalDashboard: publicProcedure.input(z.object({ profileCode: profileCodeSchema, year: z.coerce.number().int().min(2000).max(2100), month: z.coerce.number().int().min(1).max(12) })).query(({ input }) => getGlobalDashboard(input.profileCode, input.year, input.month)),
     monthlySettings: router({
       get: publicProcedure.input(z.object({ profileCode: profileCodeSchema, monthStart: monthSchema })).query(async ({ input }) => {
         const rows = await supabaseRequest<Record<string, unknown>[]>(`/activecfo_monthly_settings?select=*&profile_code=eq.${input.profileCode}&month_start=eq.${input.monthStart}&limit=1`);

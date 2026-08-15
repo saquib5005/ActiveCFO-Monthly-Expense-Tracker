@@ -3,6 +3,7 @@
 import { trpc } from "@/lib/trpc";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -35,7 +36,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 type ProfileCode = "saquib" | "rahat";
-type ViewId = "overview" | "setup" | "ledger" | "investments" | "insurance" | "guardrails" | "strategies" | "signals" | "help";
+type ViewId = "overview" | "global" | "setup" | "ledger" | "investments" | "insurance" | "guardrails" | "strategies" | "signals" | "help";
 type ModalType = "settings" | "threshold" | "ledger" | "investment" | "insurance" | "guardrail" | "strategy" | "signal" | "help";
 type AnyRecord = Record<string, unknown>;
 type ModalState = { type: ModalType; record?: AnyRecord } | null;
@@ -69,6 +70,25 @@ type Dashboard = {
   summary: Summary;
 };
 
+type GlobalDashboardData = {
+  profileCode: ProfileCode;
+  year: number;
+  month: number;
+  analytics: {
+    totalSpent: number;
+    totalIncome: number;
+    netCashFlow: number;
+    transactionCount: number;
+    activeSpendingDays: number;
+    averageSpendOnActiveDays: number;
+    topCategory: { category: string; amount: number; percentage: number } | null;
+    bucketSpending: Array<{ bucket: string; amount: number }>;
+    categorySpending: Array<{ category: string; amount: number; percentage: number }>;
+    dailySpending: Array<{ day: string; amount: number }>;
+    thresholdPerformance: Array<{ id: string; bucket: string; category: string; limit: number; spent: number; percentage: number }>;
+  };
+};
+
 const CATEGORY_GROUPS = {
   NEEDS: ["Housing", "Groceries", "Utilities", "Fuel", "Transport", "Healthcare", "Education", "Insurance", "Household", "Debt repayment"],
   WANTS: ["Entertainment", "Dining", "Shopping", "Travel", "Personal care", "Subscriptions", "Gifts", "Hobbies"],
@@ -77,6 +97,7 @@ const CATEGORY_GROUPS = {
 
 const NAV_ITEMS: Array<{ id: ViewId; label: string; icon: LucideIcon; section?: string }> = [
   { id: "overview", label: "Overview", icon: Target, section: "Control center" },
+  { id: "global", label: "Global dashboard", icon: TrendingUp },
   { id: "setup", label: "Monthly setup", icon: SlidersHorizontal },
   { id: "ledger", label: "Ledger", icon: ReceiptText, section: "Records" },
   { id: "investments", label: "Investments", icon: WalletCards },
@@ -111,6 +132,9 @@ function today() {
 function monthLabel(monthStart: string) {
   return new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(new Date(`${monthStart}T00:00:00`));
 }
+
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat("en-IN", { month: "long" }).format(new Date(Date.UTC(2026, index, 1))) }));
+const CHART_COLORS = ["#65dbe3", "#b99af0", "#e1a85e", "#778cff"];
 
 function signalTone(severity: unknown) {
   if (severity === "ALERT") return "tone-alert";
@@ -174,6 +198,18 @@ function Overview({ dashboard, profileCode, monthStart, setView, openModal }: { 
     <section className="overview-grid"><article className="panel threshold-panel"><div className="panel-head"><div><SectionLabel>THRESHOLD PULSE</SectionLabel><h2>Needs, wants & investment</h2></div><button className="text-action" onClick={() => setView("setup")}>Manage <ArrowUpRight size={14} /></button></div>{thresholds.length === 0 ? <EmptyState icon={SlidersHorizontal} title="No monthly thresholds yet" body="Add limits for detailed categories such as Fuel, Entertainment, Shopping, or your own Investment targets." action={<button className="secondary-action" onClick={() => setView("setup")}>Open monthly setup</button>} /> : <div className="threshold-list">{summary.thresholdSummary.map((threshold) => <div className="threshold-row" key={textValue(threshold.id)}><div className="threshold-row-top"><span className={`bucket-tag ${bucketTone(threshold.bucket)}`}>{textValue(threshold.bucket)}</span><strong>{textValue(threshold.category)}</strong><span>{formatCurrency(threshold.spent)} / {formatCurrency(threshold.limit)}</span></div><div className="progress-line"><span className={threshold.usedPercentage >= 100 ? "over-limit" : ""} style={{ width: `${Math.min(threshold.usedPercentage, 100)}%` }} /></div><small>{threshold.usedPercentage}% used · review at {numberValue(threshold.warning_percentage)}%</small></div>)}</div>}</article>
       <article className="panel signals-preview"><div className="panel-head"><div><SectionLabel>SIGNALS</SectionLabel><h2>What needs attention</h2></div><button className="text-action" onClick={() => setView("signals")}>Open <ArrowUpRight size={14} /></button></div>{activeSignals.length === 0 ? <EmptyState icon={BadgeCheck} title="No active signals" body="Signals will appear when a threshold reaches its configured warning point or when you add a manual reminder." /> : <div className="signal-list">{activeSignals.slice(0, 3).map((signal) => <div className="signal-row" key={textValue(signal.id)}><span className={`severity-dot ${signalTone(signal.severity)}`} /><div><strong>{textValue(signal.title)}</strong><p>{textValue(signal.message)}</p></div></div>)}</div>}</article></section>
   </>;
+}
+
+function GlobalDashboard({ data, isLoading, isError, year, month, onYearChange, onMonthChange, setView }: { data?: GlobalDashboardData; isLoading: boolean; isError: boolean; year: number; month: number; onYearChange: (year: number) => void; onMonthChange: (month: number) => void; setView: (view: ViewId) => void }) {
+  const years = Array.from({ length: 31 }, (_, index) => new Date().getFullYear() - 15 + index);
+  const selectedMonth = `${year}-${String(month).padStart(2, "0")}-01`;
+  if (isLoading) return <LoadingPane />;
+  if (isError || !data) return <EmptyState icon={CircleHelp} title="Global analysis could not load" body="Check the Supabase connection and choose the period again." />;
+  const { analytics } = data;
+  const hasSpending = analytics.totalSpent > 0;
+  const visibleBuckets = analytics.bucketSpending.filter((row) => row.amount > 0);
+
+  return <div className="view-stack global-view"><div className="page-heading global-heading"><div><SectionLabel>CONTROL CENTER · GLOBAL DASHBOARD</SectionLabel><h1>See the month<br /><em>as a whole.</em></h1><p>All graphs are derived from {data.profileCode === "saquib" ? "Saquib" : "Rahat"}’s saved Supabase ledger entries for the selected calendar month.</p></div><div className="global-toolbar"><label><span>YEAR</span><select value={year} onChange={(event) => onYearChange(Number(event.target.value))}>{years.map((option) => <option key={option} value={option}>{option}</option>)}</select></label><label><span>MONTH</span><select value={month} onChange={(event) => onMonthChange(Number(event.target.value))}>{MONTH_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div></div><div className="analysis-period"><SignalDot /><span>SELECTED PERIOD</span><strong>{monthLabel(selectedMonth)}</strong><small>· records update from Supabase</small></div><div className="metrics-grid global-metrics"><MetricCard label="Monthly spend" value={formatCurrency(analytics.totalSpent)} detail={`${analytics.transactionCount} expense record${analytics.transactionCount === 1 ? "" : "s"}`} icon={ReceiptText} accent="amber" /><MetricCard label="Monthly income" value={formatCurrency(analytics.totalIncome)} detail="Income records in selected month" icon={CircleDollarSign} /><MetricCard label="Net cash flow" value={formatCurrency(analytics.netCashFlow)} detail="Income minus recorded expenses" icon={TrendingUp} accent="violet" /><MetricCard label="Top category" value={analytics.topCategory ? formatCurrency(analytics.topCategory.amount) : "—"} detail={analytics.topCategory ? `${analytics.topCategory.category} · ${analytics.topCategory.percentage}% of spend` : "No expense categories yet"} icon={Target} /></div>{!hasSpending ? <article className="panel global-empty"><EmptyState icon={TrendingUp} title="No monthly spending records" body="Add expense records in the Ledger for this selected period. The daily trend, bucket mix, categories, and threshold analysis will then populate from Supabase." action={<button className="primary-action" onClick={() => setView("ledger")}><Plus size={15} /> Add ledger record</button>} /></article> : <section className="analytics-grid"><article className="panel analysis-panel analysis-wide"><div className="panel-head"><div><SectionLabel>SPENDING TREND</SectionLabel><h2>Daily outflow across {monthLabel(selectedMonth)}</h2></div><span className="analysis-note">{analytics.activeSpendingDays} active spending day{analytics.activeSpendingDays === 1 ? "" : "s"} · average {formatCurrency(analytics.averageSpendOnActiveDays)}</span></div><div className="chart-canvas"><ResponsiveContainer width="100%" height={270}><AreaChart data={analytics.dailySpending} margin={{ top: 12, right: 10, left: 0, bottom: 0 }}><defs><linearGradient id="spendGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#65dbe3" stopOpacity={0.44} /><stop offset="100%" stopColor="#65dbe3" stopOpacity={0} /></linearGradient></defs><CartesianGrid stroke="rgba(160,189,210,.12)" vertical={false} /><XAxis dataKey="day" tick={{ fill: "#778794", fontSize: 9 }} axisLine={false} tickLine={false} interval="preserveStartEnd" /><YAxis tickFormatter={(value) => `₹${Number(value).toLocaleString("en-IN")}`} tick={{ fill: "#778794", fontSize: 9 }} axisLine={false} tickLine={false} width={68} /><Tooltip contentStyle={{ background: "#101821", border: "1px solid rgba(160,189,210,.24)", fontSize: 11 }} labelStyle={{ color: "#8a99a4" }} formatter={(value) => formatCurrency(value)} /><Area type="monotone" dataKey="amount" name="Daily spend" stroke="#65dbe3" strokeWidth={2} fill="url(#spendGradient)" /></AreaChart></ResponsiveContainer></div></article><article className="panel analysis-panel"><div className="panel-head"><div><SectionLabel>ALLOCATION MIX</SectionLabel><h2>Where spending went</h2></div></div><div className="chart-canvas pie-chart"><ResponsiveContainer width="100%" height={210}><PieChart><Pie data={visibleBuckets} dataKey="amount" nameKey="bucket" innerRadius={57} outerRadius={79} paddingAngle={3}>{visibleBuckets.map((row, index) => <Cell key={row.bucket} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}</Pie><Tooltip contentStyle={{ background: "#101821", border: "1px solid rgba(160,189,210,.24)", fontSize: 11 }} formatter={(value) => formatCurrency(value)} /></PieChart></ResponsiveContainer></div><div className="bucket-legend">{visibleBuckets.map((row, index) => <div key={row.bucket}><span style={{ background: CHART_COLORS[index % CHART_COLORS.length] }} /><strong>{row.bucket}</strong><small>{formatCurrency(row.amount)}</small></div>)}</div></article><article className="panel analysis-panel"><div className="panel-head"><div><SectionLabel>CATEGORY DETAIL</SectionLabel><h2>Largest monthly categories</h2></div></div><div className="chart-canvas"><ResponsiveContainer width="100%" height={250}><BarChart data={analytics.categorySpending.slice(0, 7)} layout="vertical" margin={{ top: 8, right: 10, left: 5, bottom: 0 }}><CartesianGrid stroke="rgba(160,189,210,.1)" horizontal={false} /><XAxis type="number" hide /><YAxis type="category" dataKey="category" width={88} tick={{ fill: "#a5b3bd", fontSize: 9 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#101821", border: "1px solid rgba(160,189,210,.24)", fontSize: 11 }} formatter={(value) => formatCurrency(value)} /><Bar dataKey="amount" name="Spend" fill="#b99af0" radius={[0, 3, 3, 0]} /></BarChart></ResponsiveContainer></div></article><article className="panel analysis-panel"><div className="panel-head"><div><SectionLabel>THRESHOLD HEALTH</SectionLabel><h2>Plan versus actual</h2></div></div>{analytics.thresholdPerformance.length === 0 ? <div className="chart-empty"><SlidersHorizontal size={19} /><p>Set category thresholds in Monthly Setup to compare planned and actual monthly spending.</p></div> : <div className="chart-canvas"><ResponsiveContainer width="100%" height={250}><BarChart data={analytics.thresholdPerformance.slice(0, 7)} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}><CartesianGrid stroke="rgba(160,189,210,.1)" vertical={false} /><XAxis dataKey="category" tick={{ fill: "#a5b3bd", fontSize: 9 }} axisLine={false} tickLine={false} /><YAxis tickFormatter={(value) => `₹${Number(value).toLocaleString("en-IN")}`} tick={{ fill: "#778794", fontSize: 9 }} axisLine={false} tickLine={false} width={58} /><Tooltip contentStyle={{ background: "#101821", border: "1px solid rgba(160,189,210,.24)", fontSize: 11 }} formatter={(value) => formatCurrency(value)} /><Bar dataKey="limit" name="Monthly limit" fill="rgba(119,140,255,.55)" radius={[3, 3, 0, 0]} /><Bar dataKey="spent" name="Actual spend" fill="#e1a85e" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer></div>}</article></section>}</div>;
 }
 
 function MonthlySetup({ dashboard, monthStart, openModal, removeThreshold }: { dashboard: Dashboard; monthStart: string; openModal: (type: ModalType, record?: AnyRecord) => void; removeThreshold: (id: string) => void }) {
@@ -246,15 +282,20 @@ function CrudModal({ modal, onClose, onSave, monthStart, saving }: { modal: Moda
 export default function Home() {
   const [profileCode, setProfileCode] = useState<ProfileCode>("saquib");
   const [monthStart, setMonthStart] = useState(currentMonthStart);
-  const [activeView, setActiveView] = useState<ViewId>("overview");
+  const [globalYear, setGlobalYear] = useState(() => new Date().getFullYear());
+  const [globalMonth, setGlobalMonth] = useState(() => new Date().getMonth() + 1);
+  const [activeView, setActiveView] = useState<ViewId>(() => new URLSearchParams(window.location.search).get("view") === "global" ? "global" : "overview");
   const [menuOpen, setMenuOpen] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [isSaving, setIsSaving] = useState(false);
   const queryInput = useMemo(() => ({ profileCode, monthStart }), [profileCode, monthStart]);
+  const globalQueryInput = useMemo(() => ({ profileCode, year: globalYear, month: globalMonth }), [profileCode, globalYear, globalMonth]);
   const dashboardQuery = trpc.activecfo.dashboard.useQuery(queryInput);
+  // The Global Dashboard fetches the selected calendar period only while its menu view is open.
+  const globalDashboardQuery = trpc.activecfo.globalDashboard.useQuery(globalQueryInput, { enabled: activeView === "global" });
   const helpQuery = trpc.activecfo.help.list.useQuery();
   const utils = trpc.useUtils();
-  const refresh = async () => { await Promise.all([utils.activecfo.dashboard.invalidate(queryInput), utils.activecfo.help.invalidate()]); };
+  const refresh = async () => { await Promise.all([utils.activecfo.dashboard.invalidate(queryInput), utils.activecfo.globalDashboard.invalidate(globalQueryInput), utils.activecfo.help.invalidate()]); };
   const settingsMutation = trpc.activecfo.monthlySettings.upsert.useMutation({ onSuccess: () => void refresh() });
   const thresholdMutation = trpc.activecfo.thresholds.upsert.useMutation({ onSuccess: () => void refresh() });
   const thresholdRemoveMutation = trpc.activecfo.thresholds.remove.useMutation({ onSuccess: () => void refresh() });
@@ -311,6 +352,7 @@ export default function Home() {
 
   const renderView = () => {
     if (!dashboard) return <LoadingPane />;
+    if (activeView === "global") return <GlobalDashboard data={globalDashboardQuery.data as GlobalDashboardData | undefined} isLoading={globalDashboardQuery.isLoading} isError={globalDashboardQuery.isError} year={globalYear} month={globalMonth} onYearChange={setGlobalYear} onMonthChange={setGlobalMonth} setView={setActiveView} />;
     if (activeView === "overview") return <Overview dashboard={dashboard} profileCode={profileCode} monthStart={monthStart} setView={setActiveView} openModal={openModal} />;
     if (activeView === "setup") return <MonthlySetup dashboard={dashboard} monthStart={monthStart} openModal={openModal} removeThreshold={(id) => remove("threshold", id)} />;
     if (activeView === "ledger") return <LedgerView dashboard={dashboard} openModal={openModal} removeRecord={(id) => remove("ledger", id)} />;

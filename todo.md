@@ -17,3 +17,5 @@
 - [x] Save a final checkpoint and deliver the updated project.
 - [x] Create and maintain decisions.md, Flow.md, Feature.md, Architecture.md, constrains.md, and rollback.md with explicit implementation comments where useful.
 - [x] Audit and confirm end-to-end connections among Supabase tables, tRPC procedures, feature views, and menu routes.
+- [x] Add a Global Dashboard menu with Supabase-backed year/month spend analysis and responsive charts.
+- [x] Establish and maintain DECISIONS.md and FLOW.md as the uppercase canonical records, including implemented project history.

@@ -56,6 +56,10 @@ function nextMonth(monthStart: string) {
   return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
 }
 
+function monthStartFromParts(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}-01`;
+}
+
 function supabaseHeaders(extra: HeadersInit = {}) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) throw new Error("ActiveCFO Supabase server credential is not configured.");
@@ -160,6 +164,52 @@ export function calculateDashboard(input: {
   };
 }
 
+// Analysis boundary: charts aggregate only records saved in the selected calendar month.
+// Zero-value days are derived from the calendar so an empty day never becomes fabricated spend.
+export function calculateGlobalAnalytics(input: { ledger: LedgerEntry[]; thresholds: Threshold[]; monthStart: string }) {
+  const [year, month] = input.monthStart.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const daySpending = new Map(Array.from({ length: daysInMonth }, (_, index) => [String(index + 1).padStart(2, "0"), 0]));
+  const bucketSpending = new Map(["NEEDS", "WANTS", "INVESTMENT", "OTHER"].map((bucket) => [bucket, 0]));
+  const categorySpending = new Map<string, number>();
+  const expenses = input.ledger.filter((entry) => entry.entry_type === "EXPENSE");
+  const income = input.ledger.filter((entry) => entry.entry_type === "INCOME").reduce((sum, entry) => sum + num(entry.amount), 0);
+
+  expenses.forEach((entry) => {
+    const amount = num(entry.amount);
+    const day = entry.entry_date.slice(8, 10);
+    daySpending.set(day, (daySpending.get(day) ?? 0) + amount);
+    bucketSpending.set(entry.bucket, (bucketSpending.get(entry.bucket) ?? 0) + amount);
+    categorySpending.set(entry.category, (categorySpending.get(entry.category) ?? 0) + amount);
+  });
+
+  const totalSpent = expenses.reduce((sum, entry) => sum + num(entry.amount), 0);
+  const activeSpendingDays = Array.from(daySpending.values()).filter((amount) => amount > 0).length;
+  const categoryRows = Array.from(categorySpending.entries())
+    .map(([category, amount]) => ({ category, amount, percentage: totalSpent > 0 ? Math.round((amount / totalSpent) * 100) : 0 }))
+    .sort((left, right) => right.amount - left.amount);
+  const thresholdPerformance = input.thresholds.map((threshold) => {
+    const limit = num(threshold.threshold_amount);
+    const spent = categorySpending.get(threshold.category) ?? 0;
+    return { id: threshold.id, bucket: threshold.bucket, category: threshold.category, limit, spent, percentage: limit > 0 ? Math.round((spent / limit) * 100) : 0 };
+  }).sort((left, right) => right.percentage - left.percentage);
+
+  return {
+    monthStart: input.monthStart,
+    totalSpent,
+    totalIncome: income,
+    netCashFlow: income - totalSpent,
+    transactionCount: expenses.length,
+    activeSpendingDays,
+    averageSpendOnActiveDays: activeSpendingDays > 0 ? Math.round(totalSpent / activeSpendingDays) : 0,
+    topCategory: categoryRows[0] ?? null,
+    bucketSpending: ["NEEDS", "WANTS", "INVESTMENT", "OTHER"].map((bucket) => ({ bucket, amount: bucketSpending.get(bucket) ?? 0 })),
+    categorySpending: categoryRows,
+    dailySpending: Array.from(daySpending.entries()).map(([day, amount]) => ({ day, amount })),
+    thresholdPerformance,
+  };
+}
+
 export async function getDashboard(profileCode: "saquib" | "rahat", monthStart: string) {
   const monthEnd = nextMonth(monthStart);
   const [settingRows, ledger, investments, thresholds, insurances, guardrails, strategies, storedSignals] = await Promise.all([
@@ -195,5 +245,17 @@ export async function getDashboard(profileCode: "saquib" | "rahat", monthStart: 
     strategies,
     signals: [...computedSignals, ...storedSignals],
     summary,
+  };
+}
+
+export async function getGlobalDashboard(profileCode: "saquib" | "rahat", year: number, month: number) {
+  const monthStart = monthStartFromParts(year, month);
+  const dashboard = await getDashboard(profileCode, monthStart);
+  return {
+    profileCode,
+    year,
+    month,
+    summary: dashboard.summary,
+    analytics: calculateGlobalAnalytics({ ledger: dashboard.ledger, thresholds: dashboard.thresholds, monthStart }),
   };
 }

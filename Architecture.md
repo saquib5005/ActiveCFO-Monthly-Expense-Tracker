@@ -18,10 +18,10 @@ flowchart LR
 
 | Layer | Location | Responsibility |
 | --- | --- | --- |
-| Client application | `client/src/pages/Home.tsx` | Renders all views, holds selected profile/month/UI state, submits form data, and displays success or failure feedback. |
+| Client application | `client/src/pages/Home.tsx` | Renders all views, holds selected profile/month/UI state, submits form data, and displays success or failure feedback. It also renders selected-period Recharts analytics. |
 | Client transport | `client/src/main.tsx` and `client/src/lib/trpc.ts` | Configures public tRPC transport without an OAuth redirect or browser credential. |
-| API contract | `server/routers.ts` | Defines validated public procedures for dashboard reads and each CRUD entity. |
-| Data service | `server/activecfo.ts` | Holds the server-only Supabase REST client, record helpers, and deterministic dashboard calculations. |
+| API contract | `server/routers.ts` | Defines validated public procedures for dashboard reads, the `globalDashboard` analysis query, and each CRUD entity. |
+| Data service | `server/activecfo.ts` | Holds the server-only Supabase REST client, record helpers, deterministic dashboard calculations, and selected-month analytics aggregations. |
 | Database schema | `database/20260813_activecfo_crud.sql` | Defines tables, constraints, timestamps, indexes, RLS, and the two permitted profile codes. |
 | Tests | `server/activecfo.test.ts`, `server/supabase.config.test.ts` | Verify virtual-balance calculation, exact profiles, and server credential connectivity. |
 
@@ -44,7 +44,10 @@ flowchart LR
 
 The client never communicates with Supabase directly. Instead, it calls the application server, which attaches `SUPABASE_SERVICE_ROLE_KEY` on the server side. ActiveCFO tables have Row Level Security enabled with no anon/authenticated policies because no public browser access is intended. This design keeps the Supabase credential out of the frontend while retaining the requested no-login user experience.
 
+## Global Dashboard Data Path
+
+The client supplies a profile code, year, and month to the public `activecfo.globalDashboard` procedure. The server validates the period, creates a selected-month range, fetches matching ledger and threshold rows through the server-only Supabase REST client, and derives daily, bucket, category, and threshold chart series. The browser receives only the derived response and never a database credential.
+
 ## Documentation and Comment Locations
 
 The source code includes explicit comments at the no-auth compatibility boundary and data-service boundary. Add or update comments when changing access behavior, calculations, service-role use, RLS posture, or irreversible migrations. Functional code paths should remain concise; design history belongs in the Markdown files.
-

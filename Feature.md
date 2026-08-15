@@ -8,6 +8,7 @@ ActiveCFO is a manual personal-finance workspace for exactly two selectable prof
 | --- | --- | --- | --- |
 | Profile selection | Switch direct workspace between Saquib and Rahat | Read/select only | `activecfo_profiles` |
 | Overview | Shows computed balance, investment values, emergency fund, outflow, threshold pulse, and signals | Read | Aggregated server query |
+| Global Dashboard | Select a year and month to analyse daily spend, bucket mix, categories, and threshold health | Read | Supabase ledger and threshold records through `globalDashboard` |
 | Monthly setup | Opening balance, emergency-month target, thresholds | Create, update, delete | Monthly settings and thresholds tables |
 | Categories | Needs, Wants, Investment taxonomy with detailed suggested categories | Create custom threshold or ledger category | User-entered records |
 | Ledger | Income and expense records, categories, payment methods, notes | Create, read, update, delete | Ledger table |
@@ -38,8 +39,10 @@ The application presents category suggestions but does not prevent other detaile
 | Emergency fund | Sum of active Emergency Fund records using current value where supplied, otherwise cost basis. |
 | Category usage | Sum of matching monthly expense rows divided by that threshold’s amount. |
 | Wants usage | Total Wants expenses divided by the sum of all Wants thresholds. |
+| Global monthly spend | Sum of selected-month expense rows for the selected profile. |
+| Global category and bucket mix | Selected-month expense rows grouped by their saved category and first-level bucket. |
+| Daily outflow trend | Selected-month expense rows grouped by calendar day; zero values represent days with no recorded expense. |
 
 ## Expected Empty States
 
 An empty workspace is a valid state. Overview values begin at zero until a user enters settings, ledger records, or allocations. The application must not fabricate transactions, investment positions, ratings, recommendations, or household finance data.
-

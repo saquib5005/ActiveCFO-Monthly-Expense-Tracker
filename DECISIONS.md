@@ -1,10 +1,10 @@
 # ActiveCFO Decision Log
 
-## Purpose
+## Purpose and Maintenance Rule
 
-This file records decisions that materially shape the ActiveCFO product, data model, and implementation. It should be updated whenever a change alters user access, the database model, a calculation, an external integration, or a core workflow.
+`DECISIONS.md` is the **canonical, uppercase** project decision record. It preserves implementation history from the start of the project and must be updated whenever a change alters user access, the database model, analytics, a calculation, an external integration, or a core workflow. The corresponding user-visible journey must be added to `FLOW.md`.
 
-> **Documentation rule:** Every material feature change should update this decision log, `Flow.md`, `Feature.md`, `Architecture.md`, `constrains.md`, and `rollback.md` when relevant. Source comments should explain non-obvious boundaries and calculations, rather than restating obvious code.
+> **Documentation rule:** Every material feature change should update `DECISIONS.md`, `FLOW.md`, `Feature.md`, `Architecture.md`, `constrains.md`, and `rollback.md` when relevant. Source comments should explain non-obvious boundaries and calculations, rather than restating obvious code.
 
 | ID | Decision | Status | Rationale and consequence |
 | --- | --- | --- | --- |
@@ -18,12 +18,12 @@ This file records decisions that materially shape the ActiveCFO product, data mo
 | D-008 | Threshold signals are computed; reminders are stored. | Active | Automatic signals are derived from monthly category usage and warning percentages. Manual signals are independently created, edited, resolved, and deleted. |
 | D-009 | New finance tables retain RLS with no browser policy. | Active | RLS is enabled and no anon/authenticated policies are supplied because the browser does not query Supabase directly. The server service role performs the controlled access. |
 | D-010 | Existing database warnings are not silently remediated. | Active | The pre-existing `public.audit_log` RLS warning and unrelated legacy function warnings require an explicit owner decision; they were not altered by the ActiveCFO implementation. |
+| D-011 | The Global Dashboard aggregates the selected profile, year, and month server-side. | Active | A public tRPC query validates the period, fetches the selected-month Supabase rows, and returns derived chart series. No mock data, prediction, or external financial feed is used. |
 
 ## Decision Maintenance Protocol
 
-When a feature is proposed, record the request, the selected option, rejected alternatives where meaningful, its migration impact, and whether `Flow.md` or `rollback.md` also require revision. When a decision is superseded, keep the previous row and mark it superseded rather than deleting history.
+When a feature is proposed, record the request, the selected option, rejected alternatives where meaningful, its migration impact, and whether `FLOW.md` or `rollback.md` also require revision. When a decision is superseded, keep the previous row and mark it superseded rather than deleting history.
 
 ## Explicit Comment Standard
 
 Source comments are required around **security boundaries**, **calculation formulas**, **intentional constraints**, **migration logic**, and **non-obvious failure behavior**. Comments should not repeat JSX labels, CSS class names, or self-evident variable names.
-
