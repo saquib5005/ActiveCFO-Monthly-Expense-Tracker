@@ -1,6 +1,7 @@
 // Security boundary: every Supabase operation in ActiveCFO stays server-side.
 // The frontend only speaks to the public tRPC procedures; it never receives a database key.
 import { z } from "zod";
+import { createDetailedMonthlyAnalytics, createTrailingTrend } from "./detailedAnalytics";
 
 const SUPABASE_URL = "https://himcjclfbzoposhxmlfg.supabase.co";
 const REST_BASE = `${SUPABASE_URL}/rest/v1`;
@@ -250,12 +251,21 @@ export async function getDashboard(profileCode: "saquib" | "rahat", monthStart: 
 
 export async function getGlobalDashboard(profileCode: "saquib" | "rahat", year: number, month: number) {
   const monthStart = monthStartFromParts(year, month);
-  const dashboard = await getDashboard(profileCode, monthStart);
+  const trailingDate = new Date(Date.UTC(year, month - 12, 1));
+  const trailingStart = monthStartFromParts(trailingDate.getUTCFullYear(), trailingDate.getUTCMonth() + 1);
+  const [dashboard, trailingLedger] = await Promise.all([
+    getDashboard(profileCode, monthStart),
+    supabaseRequest<LedgerEntry[]>(`/activecfo_ledger_entries?select=*&profile_code=eq.${profileCode}&entry_date=gte.${trailingStart}&entry_date=lt.${nextMonth(monthStart)}&order=entry_date.asc`),
+  ]);
+  const detailed = createDetailedMonthlyAnalytics({ ledger: dashboard.ledger, thresholds: dashboard.thresholds, monthStart });
   return {
     profileCode,
     year,
     month,
     summary: dashboard.summary,
     analytics: calculateGlobalAnalytics({ ledger: dashboard.ledger, thresholds: dashboard.thresholds, monthStart }),
+    detailed,
+    trailing: createTrailingTrend(trailingLedger, year, month),
+    expenseRecords: dashboard.ledger.filter((entry) => entry.entry_type === "EXPENSE"),
   };
 }

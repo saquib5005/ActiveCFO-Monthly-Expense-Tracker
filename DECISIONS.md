@@ -19,6 +19,9 @@
 | D-009 | New finance tables retain RLS with no browser policy. | Active | RLS is enabled and no anon/authenticated policies are supplied because the browser does not query Supabase directly. The server service role performs the controlled access. |
 | D-010 | Existing database warnings are not silently remediated. | Active | The pre-existing `public.audit_log` RLS warning and unrelated legacy function warnings require an explicit owner decision; they were not altered by the ActiveCFO implementation. |
 | D-011 | The Global Dashboard aggregates the selected profile, year, and month server-side. | Active | A public tRPC query validates the period, fetches the selected-month Supabase rows, and returns derived chart series. No mock data, prediction, or external financial feed is used. |
+| D-012 | Detailed analytics use saved ledger descriptions as the lowest available hierarchy level. | Active | The data model does not have a merchant field. Treemap, nested breakdown, and sunburst-style views use bucket, category, and ledger description rather than fabricating merchant information. |
+| D-013 | The displayed 50/30/20 and 20% savings targets are references, not advice. | Active | They compare saved income, expense buckets, and net cash flow only when income records exist. They do not recommend a personal allocation or create targets in the database. |
+| D-014 | CSV and PDF exports are generated in the browser from selected-month expense records. | Active | The server returns selected profile-month records through tRPC; the client creates a download without exposing the Supabase credential or storing export files server-side. |
 
 ## Decision Maintenance Protocol
 

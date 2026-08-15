@@ -19,3 +19,6 @@
 - [x] Audit and confirm end-to-end connections among Supabase tables, tRPC procedures, feature views, and menu routes.
 - [x] Add a Global Dashboard menu with Supabase-backed year/month spend analysis and responsive charts.
 - [x] Establish and maintain DECISIONS.md and FLOW.md as the uppercase canonical records, including implemented project history.
+- [x] Expand Global Dashboard with data-driven budget, savings, cash-flow, breakdown, variance, 12-month trend, daily accumulation, and calendar-intensity analytics.
+- [x] Add monthly expense export actions for CSV and PDF using the selected Supabase profile, year, and month.
+- [x] Update DECISIONS.md, FLOW.md, Feature.md, and Architecture.md for the detailed analytics and export behavior.

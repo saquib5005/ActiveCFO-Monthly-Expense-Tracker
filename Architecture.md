@@ -18,12 +18,13 @@ flowchart LR
 
 | Layer | Location | Responsibility |
 | --- | --- | --- |
-| Client application | `client/src/pages/Home.tsx` | Renders all views, holds selected profile/month/UI state, submits form data, and displays success or failure feedback. It also renders selected-period Recharts analytics. |
+| Client application | `client/src/pages/Home.tsx` | Renders all views, holds selected profile/month/UI state, submits form data, and displays success or failure feedback. |
+| Detailed analytics UI | `client/src/components/DetailedAnalyticsDashboard.tsx` | Renders advanced Recharts visuals and generates selected-month CSV/PDF downloads in the browser. |
 | Client transport | `client/src/main.tsx` and `client/src/lib/trpc.ts` | Configures public tRPC transport without an OAuth redirect or browser credential. |
 | API contract | `server/routers.ts` | Defines validated public procedures for dashboard reads, the `globalDashboard` analysis query, and each CRUD entity. |
-| Data service | `server/activecfo.ts` | Holds the server-only Supabase REST client, record helpers, deterministic dashboard calculations, and selected-month analytics aggregations. |
+| Data service | `server/activecfo.ts`, `server/detailedAnalytics.ts` | Holds the server-only Supabase REST client, record helpers, deterministic dashboard calculations, selected-period hierarchy/variance analysis, and trailing trend aggregation. |
 | Database schema | `database/20260813_activecfo_crud.sql` | Defines tables, constraints, timestamps, indexes, RLS, and the two permitted profile codes. |
-| Tests | `server/activecfo.test.ts`, `server/supabase.config.test.ts` | Verify virtual-balance calculation, exact profiles, and server credential connectivity. |
+| Tests | `server/activecfo.test.ts`, `server/detailedAnalytics.test.ts`, `server/supabase.config.test.ts` | Verify dashboard calculations, detailed analytics derivations, exact profiles, and server credential connectivity. |
 
 ## Data Model
 
@@ -46,7 +47,7 @@ The client never communicates with Supabase directly. Instead, it calls the appl
 
 ## Global Dashboard Data Path
 
-The client supplies a profile code, year, and month to the public `activecfo.globalDashboard` procedure. The server validates the period, creates a selected-month range, fetches matching ledger and threshold rows through the server-only Supabase REST client, and derives daily, bucket, category, and threshold chart series. The browser receives only the derived response and never a database credential.
+The client supplies a profile code, year, and month to the public `activecfo.globalDashboard` procedure. The server validates the period, creates selected-month and trailing-twelve-month ranges, fetches matching ledger and threshold rows through the server-only Supabase REST client, and derives budget, savings, cash-flow, variance, bucket, category, description, daily, heatmap, and trend series. The browser receives only the selected monthly expense rows necessary for a local CSV/PDF download and never a database credential.
 
 ## Documentation and Comment Locations
 

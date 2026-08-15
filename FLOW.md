@@ -22,12 +22,12 @@ flowchart TD
   C --> L[Guardrails, Strategies, Signals]
   C --> M[Help Center]
   GD --> S[Select year and month]
-  S --> T[Server requests selected-month ledger and thresholds]
+  S --> T[Server requests selected-month and trailing ledger plus thresholds]
   H --> N[Supabase record changes]
   J --> N
   K --> N
   L --> N
-  N --> O[Server recalculates dashboard and global analytics]
+  N --> O[Server recalculates dashboard and detailed analytics]
   O --> C
   O --> GD
 ```
@@ -71,8 +71,9 @@ Investment rows are separate from the ledger because they carry allocation-speci
 | --- | --- | --- | --- |
 | 1 | Open Global Dashboard. | Loads the selected profile’s current year/month analysis. | The dashboard uses actual saved Supabase data. |
 | 2 | Choose a year and month. | Validates the period and creates a month window. | The analysis query refreshes. |
-| 3 | View charts. | Aggregates expense rows by day, bucket, category, and threshold. | Charts show monthly spending trend, allocation mix, top categories, and threshold usage. |
+| 3 | View detailed charts. | Aggregates expense rows by day, bucket, category, description, threshold, and trailing-month window. | Charts show budget consumption, savings comparison, cash flow, allocation mix, variance, trends, accumulation, intensity, and hierarchy. |
 | 4 | Add or edit a ledger record. | Persists a record through tRPC and Supabase. | Refreshing the Global Dashboard reflects the new analysis. |
+| 5 | Export CSV or PDF. | Uses the already-returned selected-month expense records. | The browser downloads a local file; no export copy is written to Supabase. |
 
 ## CRUD Outcome Flow
 

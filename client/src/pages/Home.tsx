@@ -1,6 +1,7 @@
 // Product boundary: this UI intentionally provides a two-profile workspace only.
 // Do not introduce authentication, login redirects, or browser Supabase credentials here.
 import { trpc } from "@/lib/trpc";
+import DetailedAnalyticsDashboard from "@/components/DetailedAnalyticsDashboard";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -352,7 +353,7 @@ export default function Home() {
 
   const renderView = () => {
     if (!dashboard) return <LoadingPane />;
-    if (activeView === "global") return <GlobalDashboard data={globalDashboardQuery.data as GlobalDashboardData | undefined} isLoading={globalDashboardQuery.isLoading} isError={globalDashboardQuery.isError} year={globalYear} month={globalMonth} onYearChange={setGlobalYear} onMonthChange={setGlobalMonth} setView={setActiveView} />;
+    if (activeView === "global") return <DetailedAnalyticsDashboard data={globalDashboardQuery.data} isLoading={globalDashboardQuery.isLoading} isError={globalDashboardQuery.isError} year={globalYear} month={globalMonth} onYearChange={setGlobalYear} onMonthChange={setGlobalMonth} onAddLedger={() => setActiveView("ledger")} />;
     if (activeView === "overview") return <Overview dashboard={dashboard} profileCode={profileCode} monthStart={monthStart} setView={setActiveView} openModal={openModal} />;
     if (activeView === "setup") return <MonthlySetup dashboard={dashboard} monthStart={monthStart} openModal={openModal} removeThreshold={(id) => remove("threshold", id)} />;
     if (activeView === "ledger") return <LedgerView dashboard={dashboard} openModal={openModal} removeRecord={(id) => remove("ledger", id)} />;

@@ -8,7 +8,8 @@ ActiveCFO is a manual personal-finance workspace for exactly two selectable prof
 | --- | --- | --- | --- |
 | Profile selection | Switch direct workspace between Saquib and Rahat | Read/select only | `activecfo_profiles` |
 | Overview | Shows computed balance, investment values, emergency fund, outflow, threshold pulse, and signals | Read | Aggregated server query |
-| Global Dashboard | Select a year and month to analyse daily spend, bucket mix, categories, and threshold health | Read | Supabase ledger and threshold records through `globalDashboard` |
+| Global Dashboard | Select a year and month to analyse KPIs, budget consumption, savings reference, cash flow, allocation, variance, trailing trends, daily accumulation, heatmap, and hierarchy | Read | Supabase ledger, monthly settings, and threshold records through `globalDashboard` |
+| Monthly exports | Download selected-profile, selected-month expense records as CSV or PDF | Read/export | `globalDashboard` expense-record response; browser-generated file |
 | Monthly setup | Opening balance, emergency-month target, thresholds | Create, update, delete | Monthly settings and thresholds tables |
 | Categories | Needs, Wants, Investment taxonomy with detailed suggested categories | Create custom threshold or ledger category | User-entered records |
 | Ledger | Income and expense records, categories, payment methods, notes | Create, read, update, delete | Ledger table |
@@ -42,6 +43,11 @@ The application presents category suggestions but does not prevent other detaile
 | Global monthly spend | Sum of selected-month expense rows for the selected profile. |
 | Global category and bucket mix | Selected-month expense rows grouped by their saved category and first-level bucket. |
 | Daily outflow trend | Selected-month expense rows grouped by calendar day; zero values represent days with no recorded expense. |
+| Budget consumption | Selected-month total expenses divided by the sum of saved thresholds. It is unavailable without thresholds. |
+| Savings reference | Selected-month net cash flow compared with a displayed 20% reference only when saved income exists. |
+| Category variance | Saved threshold amount minus matching selected-month actual expense. A category with spend but no threshold is shown as unbudgeted. |
+| Expense hierarchy | Expenses grouped by saved bucket, category, and ledger description. Descriptions are not merchants. |
+| Trailing trend | Up to twelve calendar months of saved income and expense rows; absent rows display as zero rather than estimates. |
 
 ## Expected Empty States
 
