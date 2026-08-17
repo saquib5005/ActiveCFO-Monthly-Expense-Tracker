@@ -78,3 +78,11 @@ Investment rows are separate from the ledger because they carry allocation-speci
 ## CRUD Outcome Flow
 
 Every form save waits for the server mutation to succeed before the modal closes and before a success message appears. A failed request leaves the form open and displays the server error. Deletes require a browser confirmation, wait for a successful response, and then refresh the relevant data view.
+
+## Allocation removal synchronization
+
+1. The user removes an allocation from the **Investments** workspace.
+2. The public mutation asks Supabase to delete the exact allocation row and requires the deleted row to be returned.
+3. If no row is returned, ActiveCFO reports a deletion error rather than a false success.
+4. After a confirmed deletion, the client awaits invalidation of dashboard, analytics, and record-list queries.
+5. Overview then recomputes **Invested Capital** from the surviving active allocation rows. Monthly Setup Future Capital thresholds remain planning-only records.

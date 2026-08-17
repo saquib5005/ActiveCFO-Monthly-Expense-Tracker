@@ -30,3 +30,7 @@ When a feature is proposed, record the request, the selected option, rejected al
 ## Explicit Comment Standard
 
 Source comments are required around **security boundaries**, **calculation formulas**, **intentional constraints**, **migration logic**, and **non-obvious failure behavior**. Comments should not repeat JSX labels, CSS class names, or self-evident variable names.
+
+## D-007 — Future Capital plans remain separate from recorded capital
+
+The Monthly Setup **Future Capital** section stores month-scoped planning thresholds only. Overview **Invested Capital** is calculated exclusively from active rows in `activecfo_investment_records`. A threshold removal must not alter a recorded allocation, and a successful allocation removal must be confirmed by Supabase before summaries are refreshed. This preserves an explicit distinction between a plan and an owned allocation.

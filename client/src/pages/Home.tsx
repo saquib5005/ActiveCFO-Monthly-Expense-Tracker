@@ -216,7 +216,7 @@ function GlobalDashboard({ data, isLoading, isError, year, month, onYearChange, 
 function MonthlySetup({ dashboard, monthStart, openModal, removeThreshold }: { dashboard: Dashboard; monthStart: string; openModal: (type: ModalType, record?: AnyRecord) => void; removeThreshold: (id: string) => void }) {
   const settings = dashboard.setting;
   const thresholds = dashboard.thresholds;
-  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>MONTHLY SETUP · {monthLabel(monthStart).toUpperCase()}</SectionLabel><h1>Plan before you<br /><em>start spending.</em></h1><p>Set your opening balance and the monthly category thresholds. Your ledger and signals will update from these limits.</p></div><button className="primary-action" onClick={() => openModal("settings", settings ?? undefined)}><Settings2 size={15} /> {settings ? "Edit month settings" : "Set month settings"}</button></div><div className="setup-summary panel"><div><SectionLabel>VIRTUAL BALANCE BASE</SectionLabel><strong>{settings ? formatCurrency(settings.opening_virtual_balance) : "Not set"}</strong><span>Opening balance for this month</span></div><div><SectionLabel>EMERGENCY TARGET</SectionLabel><strong>{settings ? `${numberValue(settings.target_emergency_months)} months` : "Not set"}</strong><span>Used by your guardrail reviews</span></div><button className="secondary-action" onClick={() => openModal("threshold")}><Plus size={15} /> Add threshold</button></div><section className="category-board">{(["NEEDS", "WANTS", "INVESTMENT"] as const).map((bucket) => <article className="category-column" key={bucket}><div className="category-column-head"><div><span className={`bucket-tag ${bucketTone(bucket)}`}>{bucket}</span><h2>{bucket === "NEEDS" ? "Essential spending" : bucket === "WANTS" ? "Discretionary spending" : "Future capital"}</h2></div><button className="small-plus" onClick={() => openModal("threshold", { bucket })} aria-label={`Add ${bucket.toLowerCase()} threshold`}><Plus size={15} /></button></div><div className="category-presets">{CATEGORY_GROUPS[bucket].map((category) => <span key={category}>{category}</span>)}</div><div className="threshold-rows">{thresholds.filter((threshold) => threshold.bucket === bucket).length === 0 ? <p className="empty-row">No thresholds created for {bucket.toLowerCase()}.</p> : thresholds.filter((threshold) => threshold.bucket === bucket).map((threshold) => <div className="threshold-card" key={textValue(threshold.id)}><div><strong>{textValue(threshold.category)}</strong><span>Review at {numberValue(threshold.warning_percentage)}%</span></div><div><strong>{formatCurrency(threshold.threshold_amount)}</strong><button aria-label={`Edit ${textValue(threshold.category)} threshold`} onClick={() => openModal("threshold", threshold)}><Edit3 size={14} /></button><button aria-label={`Delete ${textValue(threshold.category)} threshold`} onClick={() => removeThreshold(textValue(threshold.id))}><Trash2 size={14} /></button></div></div>)}</div></article>)}</section></div>;
+  return <div className="view-stack"><div className="page-heading"><div><SectionLabel>MONTHLY SETUP · {monthLabel(monthStart).toUpperCase()}</SectionLabel><h1>Plan before you<br /><em>start spending.</em></h1><p>Set your opening balance and the monthly category thresholds. Your ledger and signals will update from these limits.</p></div><button className="primary-action" onClick={() => openModal("settings", settings ?? undefined)}><Settings2 size={15} /> {settings ? "Edit month settings" : "Set month settings"}</button></div><div className="setup-summary panel"><div><SectionLabel>VIRTUAL BALANCE BASE</SectionLabel><strong>{settings ? formatCurrency(settings.opening_virtual_balance) : "Not set"}</strong><span>Opening balance for this month</span></div><div><SectionLabel>EMERGENCY TARGET</SectionLabel><strong>{settings ? `${numberValue(settings.target_emergency_months)} months` : "Not set"}</strong><span>Used by your guardrail reviews</span></div><button className="secondary-action" onClick={() => openModal("threshold")}><Plus size={15} /> Add threshold</button></div><section className="category-board">{(["NEEDS", "WANTS", "INVESTMENT"] as const).map((bucket) => <article className="category-column" key={bucket}><div className="category-column-head"><div><span className={`bucket-tag ${bucketTone(bucket)}`}>{bucket}</span><h2>{bucket === "NEEDS" ? "Essential spending" : bucket === "WANTS" ? "Discretionary spending" : "Future capital"}</h2>{bucket === "INVESTMENT" && <p className="future-capital-note">Monthly plan only — allocations are managed in Investments.</p>}</div><button className="small-plus" onClick={() => openModal("threshold", { bucket })} aria-label={`Add ${bucket.toLowerCase()} threshold`}><Plus size={15} /></button></div><div className="category-presets">{CATEGORY_GROUPS[bucket].map((category) => <span key={category}>{category}</span>)}</div><div className="threshold-rows">{thresholds.filter((threshold) => threshold.bucket === bucket).length === 0 ? <p className="empty-row">No thresholds created for {bucket.toLowerCase()}.</p> : thresholds.filter((threshold) => threshold.bucket === bucket).map((threshold) => <div className="threshold-card" key={textValue(threshold.id)}><div><strong>{textValue(threshold.category)}</strong><span>Review at {numberValue(threshold.warning_percentage)}%</span></div><div><strong>{formatCurrency(threshold.threshold_amount)}</strong><button aria-label={`Edit ${textValue(threshold.category)} threshold`} onClick={() => openModal("threshold", threshold)}><Edit3 size={14} /></button><button aria-label={`Delete ${textValue(threshold.category)} threshold`} onClick={() => removeThreshold(textValue(threshold.id))}><Trash2 size={14} /></button></div></div>)}</div></article>)}</section></div>;
 }
 
 function LedgerView({ dashboard, openModal, removeRecord }: { dashboard: Dashboard; openModal: (type: ModalType, record?: AnyRecord) => void; removeRecord: (id: string) => void }) {
@@ -296,31 +296,46 @@ export default function Home() {
   const globalDashboardQuery = trpc.activecfo.globalDashboard.useQuery(globalQueryInput, { enabled: activeView === "global" });
   const helpQuery = trpc.activecfo.help.list.useQuery();
   const utils = trpc.useUtils();
-  const refresh = async () => { await Promise.all([utils.activecfo.dashboard.invalidate(queryInput), utils.activecfo.globalDashboard.invalidate(globalQueryInput), utils.activecfo.help.invalidate()]); };
-  const settingsMutation = trpc.activecfo.monthlySettings.upsert.useMutation({ onSuccess: () => void refresh() });
-  const thresholdMutation = trpc.activecfo.thresholds.upsert.useMutation({ onSuccess: () => void refresh() });
-  const thresholdRemoveMutation = trpc.activecfo.thresholds.remove.useMutation({ onSuccess: () => void refresh() });
-  const ledgerCreateMutation = trpc.activecfo.ledger.create.useMutation({ onSuccess: () => void refresh() });
-  const ledgerUpdateMutation = trpc.activecfo.ledger.update.useMutation({ onSuccess: () => void refresh() });
-  const ledgerRemoveMutation = trpc.activecfo.ledger.remove.useMutation({ onSuccess: () => void refresh() });
-  const investmentCreateMutation = trpc.activecfo.investments.create.useMutation({ onSuccess: () => void refresh() });
-  const investmentUpdateMutation = trpc.activecfo.investments.update.useMutation({ onSuccess: () => void refresh() });
-  const investmentRemoveMutation = trpc.activecfo.investments.remove.useMutation({ onSuccess: () => void refresh() });
-  const insuranceCreateMutation = trpc.activecfo.insurance.create.useMutation({ onSuccess: () => void refresh() });
-  const insuranceUpdateMutation = trpc.activecfo.insurance.update.useMutation({ onSuccess: () => void refresh() });
-  const insuranceRemoveMutation = trpc.activecfo.insurance.remove.useMutation({ onSuccess: () => void refresh() });
-  const guardrailCreateMutation = trpc.activecfo.guardrails.create.useMutation({ onSuccess: () => void refresh() });
-  const guardrailUpdateMutation = trpc.activecfo.guardrails.update.useMutation({ onSuccess: () => void refresh() });
-  const guardrailRemoveMutation = trpc.activecfo.guardrails.remove.useMutation({ onSuccess: () => void refresh() });
-  const strategyCreateMutation = trpc.activecfo.strategies.create.useMutation({ onSuccess: () => void refresh() });
-  const strategyUpdateMutation = trpc.activecfo.strategies.update.useMutation({ onSuccess: () => void refresh() });
-  const strategyRemoveMutation = trpc.activecfo.strategies.remove.useMutation({ onSuccess: () => void refresh() });
-  const signalCreateMutation = trpc.activecfo.signals.create.useMutation({ onSuccess: () => void refresh() });
-  const signalUpdateMutation = trpc.activecfo.signals.update.useMutation({ onSuccess: () => void refresh() });
-  const signalRemoveMutation = trpc.activecfo.signals.remove.useMutation({ onSuccess: () => void refresh() });
-  const helpCreateMutation = trpc.activecfo.help.create.useMutation({ onSuccess: () => void refresh() });
-  const helpUpdateMutation = trpc.activecfo.help.update.useMutation({ onSuccess: () => void refresh() });
-  const helpRemoveMutation = trpc.activecfo.help.remove.useMutation({ onSuccess: () => void refresh() });
+  // Cross-view source of truth: a completed mutation must refetch every affected summary and list before UI success feedback.
+  const refresh = async () => {
+    await Promise.all([
+      utils.activecfo.dashboard.invalidate(queryInput),
+      utils.activecfo.globalDashboard.invalidate(globalQueryInput),
+      utils.activecfo.monthlySettings.get.invalidate(queryInput),
+      utils.activecfo.thresholds.list.invalidate(queryInput),
+      utils.activecfo.ledger.list.invalidate({ profileCode }),
+      utils.activecfo.investments.list.invalidate({ profileCode }),
+      utils.activecfo.insurance.list.invalidate({ profileCode }),
+      utils.activecfo.guardrails.list.invalidate({ profileCode }),
+      utils.activecfo.strategies.list.invalidate({ profileCode }),
+      utils.activecfo.signals.list.invalidate({ profileCode }),
+      utils.activecfo.help.invalidate(),
+    ]);
+  };
+  const settingsMutation = trpc.activecfo.monthlySettings.upsert.useMutation({ onSuccess: refresh });
+  const thresholdMutation = trpc.activecfo.thresholds.upsert.useMutation({ onSuccess: refresh });
+  const thresholdRemoveMutation = trpc.activecfo.thresholds.remove.useMutation({ onSuccess: refresh });
+  const ledgerCreateMutation = trpc.activecfo.ledger.create.useMutation({ onSuccess: refresh });
+  const ledgerUpdateMutation = trpc.activecfo.ledger.update.useMutation({ onSuccess: refresh });
+  const ledgerRemoveMutation = trpc.activecfo.ledger.remove.useMutation({ onSuccess: refresh });
+  const investmentCreateMutation = trpc.activecfo.investments.create.useMutation({ onSuccess: refresh });
+  const investmentUpdateMutation = trpc.activecfo.investments.update.useMutation({ onSuccess: refresh });
+  const investmentRemoveMutation = trpc.activecfo.investments.remove.useMutation({ onSuccess: refresh });
+  const insuranceCreateMutation = trpc.activecfo.insurance.create.useMutation({ onSuccess: refresh });
+  const insuranceUpdateMutation = trpc.activecfo.insurance.update.useMutation({ onSuccess: refresh });
+  const insuranceRemoveMutation = trpc.activecfo.insurance.remove.useMutation({ onSuccess: refresh });
+  const guardrailCreateMutation = trpc.activecfo.guardrails.create.useMutation({ onSuccess: refresh });
+  const guardrailUpdateMutation = trpc.activecfo.guardrails.update.useMutation({ onSuccess: refresh });
+  const guardrailRemoveMutation = trpc.activecfo.guardrails.remove.useMutation({ onSuccess: refresh });
+  const strategyCreateMutation = trpc.activecfo.strategies.create.useMutation({ onSuccess: refresh });
+  const strategyUpdateMutation = trpc.activecfo.strategies.update.useMutation({ onSuccess: refresh });
+  const strategyRemoveMutation = trpc.activecfo.strategies.remove.useMutation({ onSuccess: refresh });
+  const signalCreateMutation = trpc.activecfo.signals.create.useMutation({ onSuccess: refresh });
+  const signalUpdateMutation = trpc.activecfo.signals.update.useMutation({ onSuccess: refresh });
+  const signalRemoveMutation = trpc.activecfo.signals.remove.useMutation({ onSuccess: refresh });
+  const helpCreateMutation = trpc.activecfo.help.create.useMutation({ onSuccess: refresh });
+  const helpUpdateMutation = trpc.activecfo.help.update.useMutation({ onSuccess: refresh });
+  const helpRemoveMutation = trpc.activecfo.help.remove.useMutation({ onSuccess: refresh });
   const dashboard = (dashboardQuery.data as Dashboard | undefined);
   const zeroSummary: Summary = { openingBalance: 0, income: 0, expenses: 0, virtualBalance: 0, investedCapital: 0, investmentValue: 0, netWorth: 0, emergencyFund: 0, needsSpent: 0, wantsSpent: 0, investmentSpent: 0, wantsLimit: 0, wantsPercentage: 0, thresholdSummary: [] };
 

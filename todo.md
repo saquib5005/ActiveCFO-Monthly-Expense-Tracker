@@ -27,3 +27,4 @@
 - [ ] Commit only safe project files and push the verified codebase to the user-provided GitHub repository.
 - [x] Create and deliver a sanitized ZIP archive of tracked ActiveCFO source files, excluding credentials and generated artifacts.
 - [x] Increase the ActiveCFO visual scale by approximately 25% for comfortable 100% browser-zoom use while preserving responsive behavior.
+- [x] Fix Future Capital deletion synchronization so Overview investment capital reflects the surviving Supabase allocation records, and audit the related schema connections.

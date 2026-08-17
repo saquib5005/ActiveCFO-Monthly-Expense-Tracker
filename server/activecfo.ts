@@ -113,9 +113,13 @@ export async function updateRow<T>(table: string, id: string, payload: Record<st
   return rows[0];
 }
 
-export async function deleteRow(table: string, id: string) {
-  await supabaseRequest(`/${table}?id=eq.${encodeFilter(id)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
-  return { id };
+export async function deleteRow<T extends { id: string }>(table: string, id: string) {
+  const rows = await supabaseRequest<T[]>(`/${table}?id=eq.${encodeFilter(id)}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=representation" },
+  });
+  if (!rows[0]) throw new Error("The record no longer exists or could not be removed.");
+  return rows[0];
 }
 
 // Calculation boundary: dashboard values are deterministic summaries of saved records,

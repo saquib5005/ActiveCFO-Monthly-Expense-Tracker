@@ -43,3 +43,25 @@ describe("ActiveCFO dashboard calculations", () => {
     expect(analytics.thresholdPerformance[0]).toMatchObject({ category: "Fuel", percentage: 70 });
   });
 });
+
+describe("Investment allocation and monthly-planning separation", () => {
+  it("derives invested capital only from active allocation rows, not Future Capital thresholds", () => {
+    const thresholds = [{ id: "future-capital-plan", bucket: "INVESTMENT" as const, category: "Emergency Fund", threshold_amount: 5000, warning_percentage: 80 }];
+    const activeAllocation = {
+      id: "allocation-1",
+      profile_code: "saquib" as const,
+      record_type: "EMERGENCY_FUND" as const,
+      name: "Emergency Cash",
+      allocation_date: "2026-08-17",
+      units: null,
+      cost_basis: 5000,
+      current_value: 5000,
+      platform: null,
+      notes: null,
+      is_active: true,
+    };
+
+    expect(calculateDashboard({ setting: null, ledger: [], investments: [activeAllocation], thresholds }).investedCapital).toBe(5000);
+    expect(calculateDashboard({ setting: null, ledger: [], investments: [], thresholds }).investedCapital).toBe(0);
+  });
+});
